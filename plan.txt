@@ -1,0 +1,23 @@
+
+Main modules:
+
+1) Query the csv -- how to select your recordings of interest?
+    - get_csv_location
+    - get_server_list
+    - check_date_selection
+    etc
+
+2) How to load a session? 
+    loaders
+
+3) Plots how ton  inspect a session?   
+    Video inspection
+    maybe GUI to inspect neurons idk??
+
+4) format? I think format as little as possible actually. ? bombcell? parent regions etc? region-based selection of sessions? ? load active & passive matched etc.
+
+5) Things that ought to go to the generic 
+
+6) Things I don't yet know where to put.
+    Reprofigures?
+
