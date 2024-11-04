@@ -6,10 +6,10 @@ setup(
     description='Python module for querying and formatting PinkRigs dataset',
     author='Flora Takacs',
     author_email='flora.takacs.15@ucl.ac.uk',
+    url='https://github.com/takacsflora/floras-helpers',  
     packages=find_packages(), 
     install_requires=[
-        'scipy',  
-        'numpy',
+        "floras_helpers @ git+https://github.com/takacsflora/floras-helpers.git@main", 
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
@@ -19,4 +19,5 @@ setup(
     python_requires='>=3.6',    
 
 )
+
 
