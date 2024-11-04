@@ -1,9 +1,10 @@
+"This scrit contains a way to call precurated datasets for the audiovisual multisensory integration task task, currently. The idea is, here you can precompile dataset calling functions."
 import datetime
 from pathlib import Path 
 import numpy as np 
 import pandas as pd
 
-from query import load_data
+from dataset.query import load_data
 from utils import ev_utils
 
 def call_(subject_set='naive',dataset_type='naive',
