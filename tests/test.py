@@ -4,7 +4,8 @@ from dataset.query import queryCSV
 
 exp_kwargs = {
     'subject': ['AV030'],
-    'expDate': 'postImplant',
+    'expDate': '2022-12-07:2022-12-15',
+    'expDef': 'multiSpaceWorld'
     }
 
 data_name_dict = { 'events': {'_av_trials': 'table'}}
@@ -23,11 +24,11 @@ recordings = load_data(data_name_dict = data_name_dict,
                              unwrap_probes= False,
                              merge_probes=True,
                              filter_unique_shank_positions = False,
-                            #  region_selection={'region_name':'MRN',
-                            #                     'framework':'Beryl',
-                            #                     'min_fraction':20,
-                            #                     'goodOnly':True,
-                            #                     'min_spike_num':300},
+                             region_selection={'region_name':'MRN',
+                                                'framework':'Beryl',
+                                                'min_fraction':20,
+                                                'goodOnly':True,
+                                                'min_spike_num':300},
                             **exp_kwargs
                              )
 
