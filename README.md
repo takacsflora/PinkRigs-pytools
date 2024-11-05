@@ -1,6 +1,6 @@
 # PinkRigs Data Tools
 
-A Python package for querying, formatting, and processing data from the PinkRigs dataset. This repository provides easy-to-use tools to interact with the PinkRigs data, handle ONE folders, and format the data for further analysis.
+A Python package for querying, formatting, and processing data from the PinkRigs dataset. This repository provides easy-to-use tools to interact with the PinkRigs data, handle ONE folders, and format the data for further analysis. PinkRigs data follows the ONE nomenclature (Open Neurophysiology Environment, for more details go [here](https://int-brain-lab.github.io/iblenv/one_docs/one_reference.html)). 
 
 # Installation 
 
@@ -8,7 +8,7 @@ A Python package for querying, formatting, and processing data from the PinkRigs
 - create a new environment: `conda create -n PinkRigs_data_analysis_project python=3.10`
 - conda activate new environment `conda activate PinkRigs_data_analysis_project`
 - navigate to where your repository is saved in terminal `cd Documents/Github/PinkRigs-pytools`
-- install the repository in your environment ``pip install .`
+- install the repository in your environment `pip install .`
 
 ## To update after changes to the repository
 After pulling the repository run `pip install .`
