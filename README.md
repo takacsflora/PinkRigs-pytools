@@ -4,19 +4,18 @@ A Python package for querying, formatting, and processing data from the PinkRigs
 
 # Installation 
 
-- git clone this repository
-- create a new environment: 
-- conda activate new environment
-- install the repository in your environment
+- git clone this repository 
+- create a new environment: 'conda create -n PinkRigs_data_analysis_project python=3.10
+- conda activate new environment conda activate PinkRigs_data_analysis_project
+- navigate to where your repository is saved in terminal cd 'Documents/Github/PinkRigs-pytools'
+- install the repository in your environment 'pip install .'
 
 ## To update after changes to the repository
-- git pull 
-- conda activate 
-- pip install .
+After pulling the repository run 'pip install .'
 
 # To query the PinkRigs data
-- follow the tutorial
+- follow the tutorial found [here](https://github.com/cortex-lab/PinkRigs/blob/main/Analysis/data_loading_examples.ipynb). 
 
 # Common issues
-This code is currently for CortexLab members and collaborators only and requires server access. Please make sure that you mapped all of our active servers.
+This code is currently for CortexLab members and collaborators only and requires server access. Please make sure that you mapped all of our active servers. This code is only compatible with pandas 1.3> at the moment. Please get it touch if you have ideas on how to refactor for newer version of pandas.
 

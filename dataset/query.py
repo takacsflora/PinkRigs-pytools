@@ -242,7 +242,7 @@ def load_ONE_object(collection_folder, object, attributes='all'):
                 tempload = tempload.to_dict('list')
 
                 for k in tempload.keys():
-                    output[k] = np.array(tempload[k])
+                    output[k] = np.array(tempload[k],dtype='object')
 
         elif 'json' in e:
             if a in attributes:
@@ -302,6 +302,7 @@ def load_data(recordings=None,
     else:
         recordings = recordings[['subject', 'expDate', 'expDef', 'expFolder']]
 
+    recordings = recordings.copy() # set a copy to avoid pandas view versus copy warnings
     if data_name_dict:
 
         collections = list(data_name_dict.keys())
@@ -326,9 +327,9 @@ def load_data(recordings=None,
                     ev_collection_folder = exp_folder / 'ONE_preproc' / collection
 
                 objects = {}
-                for object in data_name_dict[collection]:
-                    objects[object] = load_ONE_object(ev_collection_folder, object,
-                                                      attributes=data_name_dict[collection][object])
+                for my_object in data_name_dict[collection]:
+                    objects[my_object] = load_ONE_object(ev_collection_folder, my_object,
+                                                      attributes=data_name_dict[collection][my_object])
                 objects = Bunch(objects)
                 recordings.loc[idx][collection] = objects
 

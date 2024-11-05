@@ -9,7 +9,10 @@ setup(
     url='https://github.com/takacsflora/floras-helpers',  
     packages=find_packages(), 
     install_requires=[
-        "floras_helpers @ git+https://github.com/takacsflora/floras-helpers.git@main", 
+        "floras_helpers @ git+https://github.com/takacsflora/floras-helpers.git@main#egg=floras_helpers", 
+        'ipykernel',
+        'pyarrow==8.0.0', # for parquetread support in pd
+        'pandas==1.3.5',
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
