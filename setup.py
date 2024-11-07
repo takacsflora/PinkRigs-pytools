@@ -7,7 +7,7 @@ setup(
     author='Flora Takacs',
     author_email='flora.takacs.15@ucl.ac.uk',
     url='https://github.com/takacsflora/floras-helpers',  
-    packages=find_packages(), 
+    packages=find_packages(include = ['pinkrigs_tools', 'pinkrigs_tools.*']), 
     install_requires=[
         "floras_helpers @ git+https://github.com/takacsflora/floras-helpers.git@main#egg=floras_helpers", 
         'ipykernel',
