@@ -305,6 +305,18 @@ def load_data(recordings=None,
 
     recordings = recordings.copy() # set a copy to avoid pandas view versus copy warnings
     if data_name_dict:
+        
+        # we also provide options to load in all the data default in PinkRigs
+        if data_name_dict=='all-default':
+            data_name_dict = { 'events': {'_av_trials': 'table'}}
+            ephys_dict = {'spikes':'all','clusters':'all'}
+            # both probes
+            ephys_dict = {'probe0':ephys_dict,'probe1':ephys_dict} 
+            data_name_dict.update(ephys_dict)
+            # camera data
+            cameras = ['frontCam','sideCam','eyeCam']
+            cam_dict = {cam:{'camera':['times','ROIMotionEnergy']} for cam in cameras}
+            data_name_dict.update(cam_dict)
 
         collections = list(data_name_dict.keys())
         for collection in collections:
