@@ -4,11 +4,16 @@ A Python package for querying, formatting, and processing data from the PinkRigs
 
 # Installation 
 
+### with Git
 - git clone this repository 
 - create a new environment: `conda create -n PinkRigs_data_analysis_project python=3.10`
 - conda activate new environment `conda activate PinkRigs_data_analysis_project`
 - navigate to where your repository is saved in terminal `cd Documents/Github/PinkRigs-pytools`
 - install the repository in your environment `pip install .`
+
+### with pip
+Currently you can install the query functions as a site-package with pip. For this run: 
+``
 
 ## To update after changes to the repository
 After pulling the repository run `pip install .`

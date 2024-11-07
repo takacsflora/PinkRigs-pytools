@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from dataset.query import load_data
-from utils import ev_utils
+from ..utils import ev_utils
 
 def call_(subject_set='naive',dataset_type='naive',
                     spikeToInclde=True, 

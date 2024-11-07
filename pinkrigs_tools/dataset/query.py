@@ -18,8 +18,9 @@ import pandas as pd
 from floras_helpers.io import Bunch 
 
 # local functions within library
-from utils.search import check_date_selection,select_best_camera
-from utils.spk_utils import is_rec_in_region
+
+from ..utils.search import check_date_selection,select_best_camera
+from ..utils.spk_utils import is_rec_in_region
 
 def get_csv_location(which):
     """
