@@ -1,4 +1,8 @@
 import numpy as np
+import itertools
+import pandas as pd 
+
+from floras_helpers.io import Bunch
 
 def format_events(ev, reverse_opto=False):
     if hasattr(ev, 'stim_visContrast'):
