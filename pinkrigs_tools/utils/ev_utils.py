@@ -5,37 +5,46 @@ import pandas as pd
 from floras_helpers.io import Bunch
 
 def format_events(ev, reverse_opto=False):
-    if hasattr(ev, 'stim_visContrast'):
-        ev.stim_visContrast = np.round(ev.stim_visContrast, 2)
-    if hasattr(ev, 'stim_audAmplitude'):
-        ev.stim_audAmplitude = np.round(ev.stim_audAmplitude, 2)
+        """
+        The goal of this function is to process events data and generate/refune features that are commonly used. More sepecifically, this function makes sur : 
+        - that both contrast and spl values are rounded to two decimals
+        - calculates reaction times values 
+        - can flip the data for unilatearl uptogenetics. 
+        """
+        if hasattr(ev, 'stim_visContrast'):
+                ev.stim_visContrast = np.round(ev.stim_visContrast, 2)
 
-        amps = np.unique(ev.stim_audAmplitude)
+        if hasattr(ev, 'stim_audAmplitude'):
+                ev.stim_audAmplitude = np.round(ev.stim_audAmplitude, 2)
 
-        if (
-        amps[amps > 0]).size == 1:  # if there is only one amp then the usual way of calculating audDiff etc is valid
-            ev.visDiff = ev.stim_visContrast * np.sign(ev.stim_visAzimuth)
-            ev.visDiff[np.isnan(ev.visDiff)] = 0
-            ev.audDiff = np.sign(ev.stim_audAzimuth)
+                amps = np.unique(ev.stim_audAmplitude)
 
-    if hasattr(ev, 'timeline_choiceMoveOn'):
-        ev.rt = ev.timeline_choiceMoveOn - np.nanmin(
-            np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
-            axis=1)
-        ev.rt_aud = ev.timeline_choiceMoveOn - ev.timeline_audPeriodOn
-        ev.first_move_time = ev.timeline_firstMoveOn - np.nanmin(
-            np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
-            axis=1)
-    if hasattr(ev, 'is_laserTrial') & hasattr(ev, 'stim_laser1_power') & hasattr(ev, 'stim_laser2_power'):
-        ev.laser_power = (ev.stim_laser1_power + ev.stim_laser2_power).astype('int')
-        ev.laser_power_signed = (ev.laser_power * ev.stim_laserPosition)
-        if reverse_opto & ~(np.unique(ev.laser_power_signed > 0).any()):
-            # if we call this than if within the session the opto is only on the left then we reverse the azimuth and choices on that session
-            ev.stim_audAzimuth = ev.stim_audAzimuth * -1
-            ev.stim_visAzimuth = ev.stim_visAzimuth * -1
-            ev.timeline_choiceMoveDir = ((ev.timeline_choiceMoveDir - 1.5) * -1) + 1.5
+                if (
+                amps[amps > 0]).size == 1:  # if there is only one amp then the usual way of calculating audDiff etc is valid
+                        ev.visDiff = ev.stim_visContrast * np.sign(ev.stim_visAzimuth)
+                        ev.visDiff[np.isnan(ev.visDiff)] = 0
+                        ev.audDiff = np.sign(ev.stim_audAzimuth)
 
-    return ev
+        if hasattr(ev, 'timeline_choiceMoveOn'):
+                ev.rt = ev.timeline_choiceMoveOn - np.nanmin(
+                np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
+                axis=1)
+                ev.rt_aud = ev.timeline_choiceMoveOn - ev.timeline_audPeriodOn
+                ev.first_move_time = ev.timeline_firstMoveOn - np.nanmin(
+                np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
+                axis=1)
+                
+        if hasattr(ev, 'is_laserTrial') & hasattr(ev, 'stim_laser1_power') & hasattr(ev, 'stim_laser2_power'):
+                ev.laser_power = (ev.stim_laser1_power + ev.stim_laser2_power).astype('int')
+                ev.laser_power_signed = (ev.laser_power * ev.stim_laserPosition)
+                if reverse_opto & ~(np.unique(ev.laser_power_signed > 0).any()):
+                # if we call this than if within the session the opto is only on the left then we reverse the azimuth and choices on that session
+                        ev.stim_audAzimuth = ev.stim_audAzimuth * -1
+                        ev.stim_visAzimuth = ev.stim_visAzimuth * -1
+                        ev.timeline_choiceMoveDir = ((ev.timeline_choiceMoveDir - 1.5) * -1) + 1.5
+
+
+        return ev
 
 
 def filter_active_trials(ev,rt_params = {'rt_min':None,'rt_max':None},exclude_premature_wheel=False):
@@ -137,7 +146,7 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
 
         if include_unisensory_aud:                 
             # in unisensory cases the spl/contrast is set to 0 as expected, however the azimuths are also set to nan -- not the easiest to query...
-            ev.stim_visAzimuth[np.isnan(ev.stim_visAzimuth)] =-1000 
+            ev.stim_visAzimuth[np.isnan(ev.stim_visAzimuth.astype('float'))] =-1000 
 
             vis_azimuths.append(-1000)
             vis_azimuths.sort()
@@ -146,7 +155,7 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
             spls.sort()             
         
         if include_unisensory_vis:
-            ev.stim_audAzimuth[np.isnan(ev.stim_audAzimuth)] =-1000
+            ev.stim_audAzimuth[np.isnan(ev.stim_audAzimuth.astype('float'))] =-1000
 
             aud_azimuths.append(-1000)
             aud_azimuths.sort()

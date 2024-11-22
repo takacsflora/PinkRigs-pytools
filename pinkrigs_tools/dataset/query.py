@@ -243,7 +243,10 @@ def load_ONE_object(collection_folder, object, attributes='all'):
                 tempload = tempload.to_dict('list')
 
                 for k in tempload.keys():
-                    output[k] = np.array(tempload[k],dtype='object')
+                    if type(tempload[k][0]) == np.ndarray:
+                        output[k] = np.array(tempload[k],dtype='object')
+                    else: 
+                        output[k] = np.array(tempload[k])
 
         elif 'json' in e:
             if a in attributes:
