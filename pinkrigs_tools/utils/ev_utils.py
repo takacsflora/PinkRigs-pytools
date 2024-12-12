@@ -42,8 +42,6 @@ def format_events(ev, reverse_opto=False):
                         ev.stim_audAzimuth = ev.stim_audAzimuth * -1
                         ev.stim_visAzimuth = ev.stim_visAzimuth * -1
                         ev.timeline_choiceMoveDir = ((ev.timeline_choiceMoveDir - 1.5) * -1) + 1.5
-
-
         return ev
 
 
@@ -151,8 +149,10 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
             vis_azimuths.append(-1000)
             vis_azimuths.sort()
             
-            spls.append(0)
-            spls.sort()             
+            contrasts.append(0)
+            contrasts.sort()
+
+            
         
         if include_unisensory_vis:
             ev.stim_audAzimuth[np.isnan(ev.stim_audAzimuth.astype('float'))] =-1000
@@ -160,9 +160,9 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
             aud_azimuths.append(-1000)
             aud_azimuths.sort()
 
-            contrasts.append(0)
-            contrasts.sort()
-
+            spls.append(0)
+            spls.sort() 
+            
         # separate trials into trial classes
         trial_classes = {}
         for idx,(c,spl,v_azi,a_azi,choice) in enumerate(itertools.product(contrasts,spls,vis_azimuths,aud_azimuths,choice_types)):
