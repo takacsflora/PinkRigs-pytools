@@ -50,7 +50,7 @@ def filter_active_trials(ev,rt_params = {'rt_min':None,'rt_max':None},exclude_pr
         function to filter out typically unused trials in the active data analysis
         """
         ev = format_events(ev)
-        to_keep_trials = ((ev.is_validTrial) & 
+        to_keep_trials = ((ev.is_validTrial.astype('bool')) & 
                 (ev.response_direction!=0) &  # not a nogo
                 (np.abs(ev.stim_audAzimuth)!=30))
          # if spikes are used we need to filter extra trials, such as changes of Mind
