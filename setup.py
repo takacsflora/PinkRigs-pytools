@@ -13,6 +13,8 @@ setup(
         'ipykernel',
         'pyarrow==8.0.0', # for parquetread support in pd
         'pandas==1.3.5',
+        'numpy==1.26',
+        'seaborn'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',

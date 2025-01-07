@@ -165,8 +165,7 @@ def format_cluster_data(clusters):
     if 'phy_clusterID' not in colnames:
         clusInfo['phy_clusterID'] = clusInfo.cluster_id
 
-    from Processing.pyhist.helpers.regions import BrainRegions
-    br = BrainRegions()
+    br = regions.BrainRegions()
     bc_class = bombcell_sort_units(clusInfo)
     clusInfo['bombcell_class'] = bc_class
     clusInfo['is_good'] = bc_class == 'good'

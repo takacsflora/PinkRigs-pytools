@@ -4,17 +4,18 @@ from pathlib import Path
 import numpy as np 
 import pandas as pd
 
-from dataset.query import load_data
+from .query import load_data
 from ..utils import ev_utils
 
 def call_(subject_set='naive',dataset_type='naive',
                     spikeToInclde=True, 
-                    camToInclude = True, 
+                    camToInclude = True, camPCsToInclude = False,
                     recompute_data_selection=False,
-                    min_rt=0,
+                    min_rt=0,min_active_trials=150,
                     analysis_folder = None,**kwargs):
     """
-    Function to load the neural data in a pre-curated manner (i.e. typical active data, typical passive data etc.)
+    Function to load the neural data in a pre-curated manner (i.e. typical active data, typical passive data etc.). 
+    This function is useful for selecting data for analyisis for the audiovisual task.
 
     Parameters:
     subject_set : str, optional
@@ -43,9 +44,14 @@ def call_(subject_set='naive',dataset_type='naive',
 
     # build up the parameters of the data
     data_name_dict = { 'events': {'_av_trials': 'table'}}
-    cam_dict = {'frontCam':{'camera':['times','ROIMotionEnergy']},
-                            'eyeCam':{'camera':['times','ROIMotionEnergy']},
-                            'sideCam':{'camera':['times','ROIMotionEnergy']}}
+    
+    
+    if camPCsToInclude:
+        cam_details = {'camera':['times','ROIMotionEnergy','_av_motionPCs']}
+    else:
+        cam_details = {'camera':['times','ROIMotionEnergy']}
+
+    cam_dict = {'frontCam':cam_details,'eyeCam':cam_details,'sideCam':cam_details}
     ephys_dict = {'spikes':'all','clusters':'all'}
     ephys_dict = {'probe0':ephys_dict,'probe1':ephys_dict} 
 
@@ -130,12 +136,12 @@ def call_(subject_set='naive',dataset_type='naive',
                                                 
                                                 for _,rec in recordings.iterrows()])
 
-        recordings = recordings.iloc[n_trials>150]  
+        recordings = recordings.iloc[n_trials>min_active_trials]  
 
     # make the savepath
     elif not recompute_data_selection:
         # find the latest file related to this recording  
-        datasets = list(savepath.glob(f'{subject_set}_dataset_*.csv'))
+        datasets = list(savepath.glob(f'{subject_set}_{dataset_type}_dataset_*.csv'))
         savefile = datasets[0]
         expList = pd.read_csv(savefile)   
         query_params.pop('subject') # each identifier will be called separetly so we don't need this anymore      
@@ -155,7 +161,7 @@ def call_(subject_set='naive',dataset_type='naive',
 
     current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    filename = f"{subject_set}_dataset_{current_timestamp}.csv"
+    filename = f"{subject_set}_{dataset_type}_dataset_{current_timestamp}.csv"
     savefile = savepath / filename
     recordings[['subject','expDate','expNum','expFolder']].to_csv(savefile) # I need to timestamp it -- plus arrange into some sort of folder
 

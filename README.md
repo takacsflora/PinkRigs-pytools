@@ -13,7 +13,7 @@ A Python package for querying, formatting, and processing data from the PinkRigs
 
 ### with pip
 Currently you can install the query functions as a site-package with pip. For this run: 
-``
+`pip install pinkrigs_tools @ git+https://github.com/takacsflora/PinkRigs-pytools.git@main`
 
 ## To update after changes to the repository
 After pulling the repository run `pip install .`

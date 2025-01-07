@@ -1,53 +1,90 @@
 import numpy as np
 import itertools
 import pandas as pd 
+from scipy.stats import zscore
+
 
 from floras_helpers.io import Bunch
+from floras_helpers.binning import get_binned_rasters
+from floras_helpers.vid import get_move_raster
+
+def round_event_values(ev):
+    if hasattr(ev, 'stim_visContrast'):
+        ev.stim_visContrast = np.round(ev.stim_visContrast, 2)
+    if hasattr(ev, 'stim_audAmplitude'):
+        ev.stim_audAmplitude = np.round(ev.stim_audAmplitude, 2)
+    return ev
+
+def calculate_differences(ev):
+    if hasattr(ev, 'stim_audAmplitude'):
+        amps = np.unique(ev.stim_audAmplitude)
+        if (amps[amps > 0]).size == 1:
+            ev.visDiff = ev.stim_visContrast * np.sign(ev.stim_visAzimuth)
+            ev.visDiff[np.isnan(ev.visDiff)] = 0
+            ev.audDiff = np.sign(ev.stim_audAzimuth)
+    return ev
+
+def calculate_reaction_times(ev):
+    if hasattr(ev, 'timeline_choiceMoveOn'):
+        ev.rt = ev.timeline_choiceMoveOn - np.nanmin(
+            np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
+            axis=1)
+        ev.rt_aud = ev.timeline_choiceMoveOn - ev.timeline_audPeriodOn
+        ev.first_move_time = ev.timeline_firstMoveOn - np.nanmin(
+            np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
+            axis=1)
+    return ev
+
+def process_laser_trials(ev, reverse_opto):
+    if hasattr(ev, 'is_laserTrial') & hasattr(ev, 'stim_laser1_power') & hasattr(ev, 'stim_laser2_power'):
+        ev.laser_power = (ev.stim_laser1_power + ev.stim_laser2_power).astype('int')
+        ev.laser_power_signed = (ev.laser_power * ev.stim_laserPosition)
+        if reverse_opto & ~(np.unique(ev.laser_power_signed > 0).any()):
+            ev.stim_audAzimuth = ev.stim_audAzimuth * -1
+            ev.stim_visAzimuth = ev.stim_visAzimuth * -1
+            ev.timeline_choiceMoveDir = ((ev.timeline_choiceMoveDir - 1.5) * -1) + 1.5
+    return ev
+
+def normalize_event_values(ev):
+        maxV = np.max(np.abs(ev.visDiff))
+        maxA = np.max(np.abs(ev.stim_audAzimuth))
+        ev['visDiff']=ev.visDiff/maxV
+        ev['audDiff']=ev.stim_audAzimuth/maxA
+        # also the option to lateralise them
+        ev['visR']=np.abs(ev.visDiff)*(ev.visDiff>0)
+        ev['visL']=np.abs(ev.visDiff)*(ev.visDiff<0)
+        ev['audR']=(ev.audDiff>0).astype('int')
+        ev['audL']=(ev.audDiff<0).astype('int')
+
+        if hasattr(ev,'response_direction'): 
+                ev['choice'] = ev.response_direction-1
+                ev['feedback'] = ev.response_feedback
+        return ev
 
 def format_events(ev, reverse_opto=False):
         """
-        The goal of this function is to process events data and generate/refune features that are commonly used. More sepecifically, this function makes sur : 
-        - that both contrast and spl values are rounded to two decimals
-        - calculates reaction times values 
-        - can flip the data for unilatearl uptogenetics. 
+        Format event data by rounding values, calculating differences, reaction times, 
+        processing laser trials, and normalizing event values.
+
+        Args:
+                ev (Bunch): Event data.
+                reverse_opto (bool, optional): Flag to reverse optogenetic stimulation. Defaults to False.
+
+        Returns:
+                Bunch: Formatted event data.
         """
-        if hasattr(ev, 'stim_visContrast'):
-                ev.stim_visContrast = np.round(ev.stim_visContrast, 2)
 
-        if hasattr(ev, 'stim_audAmplitude'):
-                ev.stim_audAmplitude = np.round(ev.stim_audAmplitude, 2)
+        ev = round_event_values(ev)
+        ev = calculate_differences(ev)
+        ev = calculate_reaction_times(ev)
+        ev = process_laser_trials(ev, reverse_opto)
+        ev = normalize_event_values(ev)
 
-                amps = np.unique(ev.stim_audAmplitude)
-
-                if (
-                amps[amps > 0]).size == 1:  # if there is only one amp then the usual way of calculating audDiff etc is valid
-                        ev.visDiff = ev.stim_visContrast * np.sign(ev.stim_visAzimuth)
-                        ev.visDiff[np.isnan(ev.visDiff)] = 0
-                        ev.audDiff = np.sign(ev.stim_audAzimuth)
-
-        if hasattr(ev, 'timeline_choiceMoveOn'):
-                ev.rt = ev.timeline_choiceMoveOn - np.nanmin(
-                np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
-                axis=1)
-                ev.rt_aud = ev.timeline_choiceMoveOn - ev.timeline_audPeriodOn
-                ev.first_move_time = ev.timeline_firstMoveOn - np.nanmin(
-                np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
-                axis=1)
-                
-        if hasattr(ev, 'is_laserTrial') & hasattr(ev, 'stim_laser1_power') & hasattr(ev, 'stim_laser2_power'):
-                ev.laser_power = (ev.stim_laser1_power + ev.stim_laser2_power).astype('int')
-                ev.laser_power_signed = (ev.laser_power * ev.stim_laserPosition)
-                if reverse_opto & ~(np.unique(ev.laser_power_signed > 0).any()):
-                # if we call this than if within the session the opto is only on the left then we reverse the azimuth and choices on that session
-                        ev.stim_audAzimuth = ev.stim_audAzimuth * -1
-                        ev.stim_visAzimuth = ev.stim_visAzimuth * -1
-                        ev.timeline_choiceMoveDir = ((ev.timeline_choiceMoveDir - 1.5) * -1) + 1.5
-        return ev
-
+        return pd.DataFrame.from_dict(ev)
 
 def filter_active_trials(ev,rt_params = {'rt_min':None,'rt_max':None},exclude_premature_wheel=False):
         """
-        function to filter out typically unused trials in the active data analysis
+        function to filter out typically unused trials in the active data analysis (maybe to be used after data extraction actually!)
         """
         ev = format_events(ev)
         to_keep_trials = ((ev.is_validTrial.astype('bool')) & 
@@ -67,7 +104,6 @@ def filter_active_trials(ev,rt_params = {'rt_min':None,'rt_max':None},exclude_pr
 
 
         return to_keep_trials
-
 
 def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
                 classify_choice_types=True,choice_types = None, 
@@ -263,3 +299,126 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
 
 
         return ev,class_types
+
+def add_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,single_average=False):
+        """
+        """
+        
+        
+        raster_kwargs = {
+                'pre_time':pre_time,
+                'post_time':post_time, 
+                'bin_size':pre_time+post_time,
+                'smoothing':0,
+                'return_fr':True,
+                'baseline_subtract': False, 
+                }
+
+
+        t_on = ev[onset_time]
+
+        # this only works if all t_ons are nans which is ofc not true always
+        r = get_binned_rasters(spikes.times,spikes.clusters,nID,t_on[~np.isnan(t_on)],**raster_kwargs)
+
+        if single_average: 
+                r.rasters = r.rasters.mean(axis=1)[:,np.newaxis,:]
+        # zscore across the trials so that the neurons that do not vary per trial do not get added as baseline weights    
+        zscored = zscore(r.rasters[:,:,0],axis=0) 
+
+        # discard neurons that are nan on all trials that were kept 
+        discard_idx =  np.isnan(zscored).any(axis=0)
+
+        # get back the nans when t_on was nan
+        resps = np.empty((t_on.size,zscored.shape[1]))*np.nan
+        resps[~np.isnan(t_on),:] = zscored
+
+        # some more sophisticated cluster selection as to what goes into the model
+
+        if single_average:
+                #df['neuron'] = pd.DataFrame((resps[:,~discard_idx].mean(axis=1))) 
+                ev['neuron']  = pd.DataFrame(resps[:,~discard_idx])
+        else:
+                nrnNames  = np.array(['neuron_%.0d' % n for n in nID])[~discard_idx]
+                ev[nrnNames] = pd.DataFrame(resps[:,~discard_idx])
+
+def add_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0):
+        
+        bin_kwargs  = {
+                'pre_time':pre_time,
+                'post_time':post_time, 
+                'bin_size': pre_time+post_time,
+                'sortAmp':False, 'to_plot':False,
+                'baseline_subtract':False
+        }
+
+
+        cam_values = (cam.ROIMotionEnergy) # or maybe I should do things based on PCs
+        t_on = ev[onset_time]
+        move_raster,_,_  = get_move_raster(t_on[~np.isnan(t_on)],cam.times,cam_values,**bin_kwargs) 
+        
+        zscored = zscore(move_raster,axis=0) 
+
+        resps = np.empty((t_on.size,zscored.shape[1]))*np.nan
+        resps[~np.isnan(t_on),:] = zscored
+        ev['movement'] = pd.DataFrame(resps)
+        
+
+        # also do it for each PC
+        if hasattr(cam, '_av_motionPCs'):
+                nPCs = 100 
+                PCs_raster,_,_ = zip(*[get_move_raster(t_on[~np.isnan(t_on)],cam.times,cam._av_motionPCs[:,0,i],**bin_kwargs) for i in range(nPCs)])
+                PCs_raster = np.concatenate(PCs_raster,axis=1)
+                PCs_raster_ = np.empty((t_on.size,nPCs))*np.nan
+                PCs_raster_[~np.isnan(t_on),:] = PCs_raster
+                
+                for i in range(nPCs):
+                        ev['movement_PC%.0d' % i] = PCs_raster_[:,i]
+
+def get_triggered_data_per_trial(ev,spikes=None,cam=None,nID=None,single_average = False,pre_time=0.2,post_time=0, onset_time = 'timeline_audPeriodOn',**kwargs):
+    """
+    specific function for the av pipeline such that the _av_trials.table is formatted for the glmFit class
+
+
+    Parameters: 
+    ----------
+    ev: Bunch
+        _av_trials.table
+    spikes: Bunch 
+        default output of the pipeline
+        cam: Bunch
+    Returns: pd.DataFrame
+    """
+    ev = format_events(ev,reverse_opto=False)  
+    # add average nerual activity to the ev
+    if spikes: 
+        add_triggered_spikes(ev,spikes,nID,onset_time=onset_time,pre_time=pre_time,post_time=post_time,single_average=single_average)
+    if cam:
+        add_triggered_cam(ev,cam,onset_time=onset_time,pre_time=pre_time,post_time=post_time)
+
+
+
+#     if post_time is not None:
+#         rt_params = {'rt_min':post_time+0.03,'rt_max':1.5}
+#     else:
+#         rt_params = {'rt_min':0.03,'rt_max':1.5}
+
+#     to_keep_trials = filter_active_trials(ev,rt_params=rt_params,**kwargs) # not that used in th
+#    df = df[to_keep_trials].reset_index(drop=True)
+
+    return ev
+
+
+# some other filtering fuction that I have been having.. 
+
+    # optin to do some filtering here....
+    # trials['trialtype_id'] = trials.copy().groupby(['visDiff','audDiff']).ngroup()
+    # #
+
+    # # make sure that each class of trials will have min 2 types for splitting
+    # uniqueIDs,test_counts = np.unique(trials.trialtype_id,return_counts=True)
+
+    # if (test_counts<2).any():
+    #     print('In %s I am dropping some trial types...' % rec.expFolder)
+    #     rare_trialtypes = uniqueIDs[test_counts<2]
+    #     for rareID in rare_trialtypes:
+    #         trials = trials[trials.trialtype_id!=rareID]
