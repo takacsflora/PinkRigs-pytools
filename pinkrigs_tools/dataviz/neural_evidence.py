@@ -10,8 +10,8 @@ from pinkrigs_tools.utils.ev_utils import format_events
 from pinkrigs_tools.utils.stat.cccp import cccp, get_default_set
 
 recordings = load_data(
-    subject  = 'AV008',
-    expDate = '2022-03-11',
+    subject  = 'AV034',
+    expDate = '2022-12-07',
     expDef = 'multiSpaceWorld',
     data_name_dict = 'all-default', 
     merge_probes = True, 
@@ -21,12 +21,12 @@ recordings = load_data(
 
 rec = recordings.iloc[0]
 #%%
-pars = get_default_set(which='single_bin',t_length=0.2,t_bin=0.005)
-c = cccp()
-c.load_and_format_data(rec=rec)
-u,p,_,t, = zip(*[c.get_U(which_dat='neural',**cp) for _,cp in pars.iterrows()])
+# pars = get_default_set(which='single_bin',t_length=0.2,t_bin=0.005)
+# c = cccp()
+# c.load_and_format_data(rec=rec)
+# u,p,_,t, = zip(*[c.get_U(which_dat='neural',**cp) for _,cp in pars.iterrows()])
 
-p_choice = p[1]
+# p_choice = p[1]
 # %%
 ev = pd.DataFrame(format_events(rec.events._av_trials))
 spikes = rec.probe.spikes
@@ -74,7 +74,7 @@ def plot_sempsth(responses,t_bin,ax,**kwargs):
     ax.plot(t_bin,m,**kwargs)
     ax.fill_between(t_bin, m - sem, m + sem,alpha= 0.3,**kwargs)
 
-neuronID = 1166
+neuronID = 99
 
 nrn_at_aud = (at_aud.rasters[:,np.isin(at_aud.cscale,neuronID),:]).mean(axis=1)
 nrn_at_choice = (at_choice.rasters[:,np.isin(at_choice.cscale,neuronID),:]).mean(axis=1)
