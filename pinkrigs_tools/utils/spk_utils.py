@@ -15,7 +15,7 @@ def bombcell_sort_units(clusdat, max_peaks=2, max_throughs=1,
 
     Parameters: 
     ----------
-    see bombcell documentataion 
+    see bombcell documentation 
 
 
     Returns:
