@@ -48,7 +48,7 @@ def process_laser_trials(ev, reverse_opto):
     return ev
 
 def normalize_event_values(ev):
-        maxV = np.max(np.abs(ev.visDiff))
+        maxV = np.max(np.abs(ev.visDiff)) 
         maxA = np.max(np.abs(ev.audDiff))
         ev['visDiff']=ev.visDiff/maxV
         ev['audDiff']=ev.audDiff/maxA
