@@ -16,13 +16,15 @@ def round_event_values(ev):
     return ev
 
 def calculate_differences(ev):
-    if hasattr(ev, 'stim_audAmplitude'):
-        amps = np.unique(ev.stim_audAmplitude)
-        if (amps[amps > 0]).size == 1:
-            ev.visDiff = ev.stim_visContrast * np.sign(ev.stim_visAzimuth)
-            ev.visDiff[np.isnan(ev.visDiff)] = 0
-            ev.audDiff = np.sign(ev.stim_audAzimuth)
-    return ev
+        ev.visDiff = ev.stim_visContrast * np.sign(ev.stim_visAzimuth)
+        ev.visDiff[np.isnan(ev.visDiff)] = 0
+
+        unique_audAmps = np.unique(ev.stim_audAmplitude)
+        assert (unique_audAmps!=0).sum()==1, 'more than 1 SPLs are played so audDiff is complex to calculate. Currently audDiff is just realted to auditory azimuth..'
+        ev.audDiff = ev.stim_audAzimuth.copy()
+        ev.audDiff[np.isnan(ev.audDiff)] = 0
+
+        return ev
 
 def calculate_reaction_times(ev):
     if hasattr(ev, 'timeline_choiceMoveOn'):
@@ -47,21 +49,21 @@ def process_laser_trials(ev, reverse_opto):
 
 def normalize_event_values(ev):
         maxV = np.max(np.abs(ev.visDiff))
-        maxA = np.max(np.abs(ev.stim_audAzimuth))
+        maxA = np.max(np.abs(ev.audDiff))
         ev['visDiff']=ev.visDiff/maxV
-        ev['audDiff']=ev.stim_audAzimuth/maxA
+        ev['audDiff']=ev.audDiff/maxA
         # also the option to lateralise them
         ev['visR']=np.abs(ev.visDiff)*(ev.visDiff>0)
         ev['visL']=np.abs(ev.visDiff)*(ev.visDiff<0)
-        ev['audR']=(ev.audDiff>0).astype('int')
-        ev['audL']=(ev.audDiff<0).astype('int')
+        ev['audR']=np.abs(ev.audDiff)*(ev.audDiff>0)
+        ev['audL']=np.abs(ev.audDiff)*(ev.audDiff<0)
 
         if hasattr(ev,'response_direction'): 
                 ev['choice'] = ev.response_direction-1
                 ev['feedback'] = ev.response_feedback
         return ev
 
-def format_events(ev, reverse_opto=False):
+def format_events(ev, reverse_opto=False,normalise_event_values=True):
         """
         Format event data by rounding values, calculating differences, reaction times, 
         processing laser trials, and normalizing event values.
@@ -78,7 +80,9 @@ def format_events(ev, reverse_opto=False):
         ev = calculate_differences(ev)
         ev = calculate_reaction_times(ev)
         ev = process_laser_trials(ev, reverse_opto)
-        ev = normalize_event_values(ev)
+        
+        if normalise_event_values:
+                ev = normalize_event_values(ev)
 
         return pd.DataFrame.from_dict(ev)
 
@@ -307,7 +311,7 @@ def add_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
         
         raster_kwargs = {
                 'pre_time':pre_time,
-                'post_time':post_time, 
+                'post_time': post_time, 
                 'bin_size':pre_time+post_time,
                 'smoothing':0,
                 'return_fr':True,

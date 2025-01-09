@@ -22,13 +22,13 @@ from pinkrigs_tools.utils.spk_utils import format_cluster_data
 # this queries the csv for possible recordings 
 
 my_ROI = 'SCm'
-paramset_name = 'choice'
+paramset_name = 'poststim'
 
 savepath = Path(r'D:\AVTrialData\%s_%s' % (my_ROI,paramset_name))
 
 
 pre_cured_call_args = {
-    'subject_set': 'AV034',
+    'subject_set': 'AV030',
     'spikeToInclde': True,
     'camToInclude': True,
     'camPCsToInclude': False,
@@ -102,7 +102,7 @@ for _,rec in active_sessions.iterrows():
 
     trial_data_passive = get_triggered_data_per_trial(
         ev= passive_rec.events._av_trials,
-        spikes=rec.probe.spikes,
+        spikes=passive_rec.probe.spikes,
         nID=cluster_data._av_IDs.values,
         cam=rec.camera,
         **trigger_timing_params

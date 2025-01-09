@@ -11,7 +11,7 @@ from pinkrigs_tools.utils.stat.cccp import cccp, get_default_set
 
 recordings = load_data(
     subject  = 'AV034',
-    expDate = '2022-12-07',
+    expDate = '2022-12-08',
     expDef = 'multiSpaceWorld',
     data_name_dict = 'all-default', 
     merge_probes = True, 
@@ -38,9 +38,10 @@ raster_kwargs = {
     'spike_times': spikes.times,
     'spike_clusters': spikes.clusters,
     'cluster_ids': rec.probe.clusters._av_IDs, 
-    'bin_size':0.005,
+    'bin_size':0.01,
     'return_fr': True,
-    'baseline_subtract': False
+    'baseline_subtract': False,
+    'smoothing':0
 }
 
 at_aud = get_binned_rasters(
@@ -74,7 +75,7 @@ def plot_sempsth(responses,t_bin,ax,**kwargs):
     ax.plot(t_bin,m,**kwargs)
     ax.fill_between(t_bin, m - sem, m + sem,alpha= 0.3,**kwargs)
 
-neuronID = 99
+neuronID = 133
 
 nrn_at_aud = (at_aud.rasters[:,np.isin(at_aud.cscale,neuronID),:]).mean(axis=1)
 nrn_at_choice = (at_choice.rasters[:,np.isin(at_choice.cscale,neuronID),:]).mean(axis=1)
@@ -104,4 +105,9 @@ for aidx,a in enumerate(plotted_aud_azimuth):
 
 plt.show()
 
+
+# %%
+
+
+plt.matshow(at_aud.rasters[:,133,:],aspect='auto')
 # %%
