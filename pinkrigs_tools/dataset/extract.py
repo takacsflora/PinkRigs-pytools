@@ -7,6 +7,41 @@
 
 #%%
 
+
+def get_params(paramset='choice'):
+    """_summary_
+
+    Args:
+        paramset (str, optional): _description_. Defaults to 'choice'.
+
+    Returns:
+        _type_: _description_
+    """
+    if paramset == 'choice':
+
+        timing_params = {
+            'onset_time':'timeline_choiceMoveOn',
+            'pre_time':0.15,
+            'post_time':0
+        }
+
+    elif paramset == 'prestim':
+        timing_params = {
+            'onset_time':'timeline_audPeriodOn',
+            'pre_time':0.15,
+            'post_time':0
+        }
+    
+    elif paramset == 'poststim':
+        timing_params = {
+            'onset_time':'timeline_audPeriodOn',
+            'pre_time':0,
+            'post_time':0.15
+        }
+    
+    return timing_params
+
+
 # this 
 import sys
 import numpy as np
@@ -22,7 +57,7 @@ from pinkrigs_tools.utils.spk_utils import format_cluster_data
 # this queries the csv for possible recordings 
 
 my_ROI = 'SCs'
-paramset_name = 'prestim'
+paramset_name = 'poststim'
 
 savepath = Path(r'D:\AVTrialData\%s_%s' % (my_ROI,paramset_name))
 
@@ -32,7 +67,7 @@ pre_cured_call_args = {
     'spikeToInclde': True,
     'camToInclude': True,
     'camPCsToInclude': False,
-    'recompute_data_selection': False,
+    'recompute_data_selection': True,
     'unwrap_probes': False,
     'merge_probes': True,
     'filter_unique_shank_positions': False,
@@ -47,11 +82,9 @@ pre_cured_call_args = {
     'analysis_folder': savepath
 }
 
-trigger_timing_params = {
-            'onset_time':'timeline_audPeriodOn',
-            'pre_time':0,
-            'post_time':0.15
-        }
+# nvm I need to update this one!
+
+trigger_timing_params = get_params(paramset=paramset_name)
 
 active_sessions  = call_(dataset_type = 'active', **pre_cured_call_args)
 passive_sessions  = call_(dataset_type = 'postactive', **pre_cured_call_args)
@@ -71,8 +104,6 @@ trial_path.mkdir(parents=False,exist_ok=True)
 
 cluster_path = Path(cluster_path)
 cluster_path.mkdir(parents=False,exist_ok=True)
-
-
 
 
 for _,rec in active_sessions.iterrows():
