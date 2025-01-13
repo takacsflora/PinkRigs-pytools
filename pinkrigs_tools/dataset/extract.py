@@ -3,7 +3,7 @@
 # ev information as well as extracted neural activity
 # maybe this collection should also contain the design matrix formatter..? up to decision for later
 
-# 
+#    
 
 #%%
 
@@ -21,18 +21,18 @@ from pinkrigs_tools.utils.spk_utils import format_cluster_data
 #from predChoice import format_av_trials
 # this queries the csv for possible recordings 
 
-my_ROI = 'SCm'
-paramset_name = 'poststim'
+my_ROI = 'SCs'
+paramset_name = 'prestim'
 
 savepath = Path(r'D:\AVTrialData\%s_%s' % (my_ROI,paramset_name))
 
 
 pre_cured_call_args = {
-    'subject_set': 'AV030',
+    'subject_set': 'active',
     'spikeToInclde': True,
     'camToInclude': True,
     'camPCsToInclude': False,
-    'recompute_data_selection': True,
+    'recompute_data_selection': False,
     'unwrap_probes': False,
     'merge_probes': True,
     'filter_unique_shank_positions': False,
@@ -78,39 +78,44 @@ cluster_path.mkdir(parents=False,exist_ok=True)
 for _,rec in active_sessions.iterrows():
     sessname = '{subject}_{expDate}.csv'.format(**rec) # will be the matching data file
     # corresponding passive session
-    passive_rec = passive_sessions.query('(subject == @rec.subject) & (expDate == @rec.expDate)').iloc[0]
-
-    # save cluster data
+    passive_rec_query = passive_sessions.query('(subject == @rec.subject) & (expDate == @rec.expDate)')
     
-    cluster_data_active = format_cluster_data(rec.probe.clusters)
-    cluster_data_passive = format_cluster_data(passive_rec.probe.clusters)
-
-    assert cluster_data_active.shape[0] == cluster_data_passive.shape[0],'something iffy'
-
-    cluster_data = cluster_data_active.copy() 
-    cluster_data.to_csv((cluster_path / sessname),index=False)
-
-    #save spike data
-    trial_data_active = get_triggered_data_per_trial(
-        ev= rec.events._av_trials,
-        spikes=rec.probe.spikes,
-        nID=cluster_data._av_IDs.values,
-        cam=rec.camera,
-        **trigger_timing_params
-    ) 
-
-
-    trial_data_passive = get_triggered_data_per_trial(
-        ev= passive_rec.events._av_trials,
-        spikes=passive_rec.probe.spikes,
-        nID=cluster_data._av_IDs.values,
-        cam=rec.camera,
-        **trigger_timing_params
-    ) 
-
-    trial_data = pd.concat([trial_data_active,trial_data_passive],axis=0)
-    trial_data.to_csv((trial_path / sessname),index=False)
+    if passive_rec_query.shape[0] == 0:
+        print('no passive session found for %s' % sessname)
     
+    else:
+
+        passive_rec = passive_rec_query.iloc[0]
+        
+        cluster_data_active = format_cluster_data(rec.probe.clusters)
+        cluster_data_passive = format_cluster_data(passive_rec.probe.clusters)
+
+        assert cluster_data_active.shape[0] == cluster_data_passive.shape[0],'something iffy with cluster data'
+
+        cluster_data = cluster_data_active.copy() 
+        cluster_data.to_csv((cluster_path / sessname),index=False)
+
+        #save spike data
+        trial_data_active = get_triggered_data_per_trial(
+            ev= rec.events._av_trials,
+            spikes=rec.probe.spikes,
+            nID=cluster_data._av_IDs.values,
+            cam=rec.camera,single_average_accross_neurons=False,get_zscored=False, 
+            **trigger_timing_params
+        ) 
+
+
+        trial_data_passive = get_triggered_data_per_trial(
+            ev= passive_rec.events._av_trials,
+            spikes=passive_rec.probe.spikes,
+            nID=cluster_data._av_IDs.values,
+            cam=rec.camera,single_average_accross_neurons=False,get_zscored=False, 
+            **trigger_timing_params
+        ) 
+
+        trial_data = pd.concat([trial_data_active,trial_data_passive],axis=0)
+        trial_data.to_csv((trial_path / sessname),index=False)
+        
 
     # save_out_meta_data
 

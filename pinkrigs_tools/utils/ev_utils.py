@@ -304,8 +304,9 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
 
         return ev,class_types
 
-def add_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,single_average=False):
+def add_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,get_zscored=True, single_average_accross_neurons=False):
         """
+        todo: try to fix this discardIdx,because it doesn't seem sensible to do it here.
         """
         
         
@@ -324,26 +325,34 @@ def add_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
         # this only works if all t_ons are nans which is ofc not true always
         r = get_binned_rasters(spikes.times,spikes.clusters,nID,t_on[~np.isnan(t_on)],**raster_kwargs)
 
-        if single_average: 
+        # if single average then we just reformulate the rasters anrray to have one datapoint in the time axis 
+        if single_average_accross_neurons: 
                 r.rasters = r.rasters.mean(axis=1)[:,np.newaxis,:]
-        # zscore across the trials so that the neurons that do not vary per trial do not get added as baseline weights    
-        zscored = zscore(r.rasters[:,:,0],axis=0) 
-
+   
+        # make the response matrix in the shape of the requested t_on  times, even if some of them were not valid
+        
         # discard neurons that are nan on all trials that were kept 
-        discard_idx =  np.isnan(zscored).any(axis=0)
+        # potentailly move this discarding outside of this function... 
+        response_at_valid_onsets = r.rasters[:,:,0]
 
-        # get back the nans when t_on was nan
-        resps = np.empty((t_on.size,zscored.shape[1]))*np.nan
-        resps[~np.isnan(t_on),:] = zscored
+        responses = np.empty((t_on.size,response_at_valid_onsets.shape[1]))*np.nan
 
-        # some more sophisticated cluster selection as to what goes into the model
+        if get_zscored:  
+                discard_idx =  np.isnan(zscored).any(axis=0) 
+                zscored = zscore(response_at_valid_onsets,axis=0)           
+        else:
+                responses[~np.isnan(t_on),:] = response_at_valid_onsets
+                discard_idx =  np.isnan(response_at_valid_onsets).any(axis=0) 
 
-        if single_average:
+
+        if single_average_accross_neurons:
                 #df['neuron'] = pd.DataFrame((resps[:,~discard_idx].mean(axis=1))) 
-                ev['neuron']  = pd.DataFrame(resps[:,~discard_idx])
+                ev['neuron']  = pd.DataFrame(responses[:,~discard_idx])
         else:
                 nrnNames  = np.array(['neuron_%.0d' % n for n in nID])[~discard_idx]
-                ev[nrnNames] = pd.DataFrame(resps[:,~discard_idx])
+                ev[nrnNames] = pd.DataFrame(responses[:,~discard_idx])
+
+
 
 def add_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0):
         
@@ -378,7 +387,7 @@ def add_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post
                 for i in range(nPCs):
                         ev['movement_PC%.0d' % i] = PCs_raster_[:,i]
 
-def get_triggered_data_per_trial(ev,spikes=None,cam=None,nID=None,single_average = False,pre_time=0.2,post_time=0, onset_time = 'timeline_audPeriodOn',**kwargs):
+def get_triggered_data_per_trial(ev,spikes=None,cam=None,nID=None,single_average_accross_neurons = False,get_zscored = False,**timing_kwargs):
     """
     specific function for the av pipeline such that the _av_trials.table is formatted for the glmFit class
 
@@ -395,9 +404,9 @@ def get_triggered_data_per_trial(ev,spikes=None,cam=None,nID=None,single_average
     ev = format_events(ev,reverse_opto=False)  
     # add average nerual activity to the ev
     if spikes: 
-        add_triggered_spikes(ev,spikes,nID,onset_time=onset_time,pre_time=pre_time,post_time=post_time,single_average=single_average)
+        add_triggered_spikes(ev,spikes,nID,single_average_accross_neurons = single_average_accross_neurons,get_zscored = get_zscored,**timing_kwargs)
     if cam:
-        add_triggered_cam(ev,cam,onset_time=onset_time,pre_time=pre_time,post_time=post_time)
+        add_triggered_cam(ev,cam,**timing_kwargs)
 
 
 

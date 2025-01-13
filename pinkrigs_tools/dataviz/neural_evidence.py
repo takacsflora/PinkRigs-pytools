@@ -2,16 +2,20 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
 
 from floras_helpers.binning import get_binned_rasters
+from floras_helpers.plotting import off_axes
 
 from pinkrigs_tools.dataset.query import load_data
 from pinkrigs_tools.utils.ev_utils import format_events
 from pinkrigs_tools.utils.stat.cccp import cccp, get_default_set
 
 recordings = load_data(
-    subject  = 'AV034',
-    expDate = '2022-12-08',
+    subject  = 'AV030',
+    expDate = '2022-12-07',
+
     expDef = 'multiSpaceWorld',
     data_name_dict = 'all-default', 
     merge_probes = True, 
@@ -30,6 +34,8 @@ rec = recordings.iloc[0]
 # %%
 ev = pd.DataFrame(format_events(rec.events._av_trials))
 spikes = rec.probe.spikes
+
+ev = ev.query('abs(stim_audAzimuth) != 30')
 ev = ev.query('response_direction != 0')
 
 # make all the rasters aligned to auditory stimulus onset and choice
@@ -38,10 +44,10 @@ raster_kwargs = {
     'spike_times': spikes.times,
     'spike_clusters': spikes.clusters,
     'cluster_ids': rec.probe.clusters._av_IDs, 
-    'bin_size':0.01,
+    'bin_size':0.02,
     'return_fr': True,
     'baseline_subtract': False,
-    'smoothing':0
+    'smoothing':0.1
 }
 
 at_aud = get_binned_rasters(
@@ -51,21 +57,13 @@ at_aud = get_binned_rasters(
 
 at_choice = get_binned_rasters(
     align_times = ev.timeline_choiceMoveOn, 
-    pre_time = 0.15,post_time  = 0.05, **raster_kwargs
+    pre_time = 1.5,post_time  = 0, **raster_kwargs
 )
 
 
 # %%
 
-plotted_aud_azimuth = np.unique(ev.audDiff)
-plotted_vis_azimuth = np.unique(ev.visDiff)
-plotted_choice  = np.unique(ev.response_direction)
 
-n_aud = len(plotted_aud_azimuth)
-n_vis = len(plotted_vis_azimuth)
-n_choice = len(plotted_choice)
-
-assert n_choice==2, 'this plotting function is just for left right choices.'
 #%%
 
 def plot_sempsth(responses,t_bin,ax,**kwargs):    
@@ -75,39 +73,175 @@ def plot_sempsth(responses,t_bin,ax,**kwargs):
     ax.plot(t_bin,m,**kwargs)
     ax.fill_between(t_bin, m - sem, m + sem,alpha= 0.3,**kwargs)
 
-neuronID = 133
+def plot_trials(responses,t_bin,ax,**kwargs):
+    ax.plot(t_bin,responses.T,**kwargs)
 
-nrn_at_aud = (at_aud.rasters[:,np.isin(at_aud.cscale,neuronID),:]).mean(axis=1)
-nrn_at_choice = (at_choice.rasters[:,np.isin(at_choice.cscale,neuronID),:]).mean(axis=1)
+def plot_responses(
+        ev,stim_resp,choice_resp,additinal_conds,nID,
+        plot_kw = {},
+        at_stim = False,
+        per_trial = True,
+        subplot_scale = 1, 
+        ): 
+    
 
-# is_choice = (p_choice < 0.05)[:,0]
-# nrn_at_aud = (at_aud.rasters[:,is_choice,:]).mean(axis=1)
-# nrn_at_choice = (at_choice.rasters[:,is_choice,:]).mean(axis=1)
+    plotted_aud_azimuth = np.unique(ev.audDiff)
+    plotted_vis_azimuth = np.unique(ev.visDiff)
+
+    n_aud = len(plotted_aud_azimuth)
+    n_vis = len(plotted_vis_azimuth)
+
+    nID = np.where(stim_resp.cscale == nID)
+
+    assert len(nID)==1,'neuron not found'
+    nID = nID[0] 
+
+    fig,ax = plt.subplots(n_aud,n_vis,
+                    #figsize=(n_vis*subplot_scale,n_aud*subplot_scale),
+                    figsize=(n_vis*subplot_scale,n_vis*subplot_scale),
+                    sharey=True,sharex=True)
 
 
-# nnn = [np.where(is_choice)[0][4]]
-# nrn_at_aud = (at_aud.rasters[:,nnn,:]).mean(axis=1)
-# nrn_at_choice = (at_choice.rasters[:,nnn,:]).mean(axis=1)
+    cmap  =getattr(plt.cm,'coolwarm')
+    colors = cmap(np.linspace(0,1,n_aud))
 
+    for aidx,a in enumerate(plotted_aud_azimuth):
+        
+        for vidx,v in enumerate(plotted_vis_azimuth):
+            
+            trial_idx = np.where((ev.visDiff == v) & (ev.audDiff==a) & additinal_conds)[0]
+            current_color  = colors[aidx]
 
-cazi,aazi,vazi=np.meshgrid(plotted_choice,plotted_aud_azimuth,plotted_vis_azimuth)
-fig,ax = plt.subplots(n_choice,n_aud*2,figsize=(n_aud*6,n_choice*3),sharey=True)
-cmap  =getattr(plt.cm,'coolwarm')
-colors = cmap(np.linspace(0,1,n_vis))
+            current_axis = ax[n_aud-1-aidx, vidx]
 
-for aidx,a in enumerate(plotted_aud_azimuth):
-    for cidx,c in enumerate(plotted_choice):
-        for v,vcolor in zip(plotted_vis_azimuth,colors):
-            trial_idx = np.where((ev.visDiff == v) & (ev.audDiff==a) & (ev.response_direction==c))[0]
             if len(trial_idx>0):
-                plot_sempsth(nrn_at_aud[trial_idx,:],at_aud.tscale, ax = ax[cidx,aidx*2],color = vcolor) 
-                plot_sempsth(nrn_at_choice[trial_idx,:],at_choice.tscale, ax = ax[cidx,aidx*2+1],color = vcolor) 
+                
+                if at_stim:
+                    resp = stim_resp.rasters[trial_idx,nID,:]
+                    tscale = stim_resp.tscale
+                else:
+                    resp = choice_resp.rasters[trial_idx,nID,:]
+                    tscale = choice_resp.tscale
 
-plt.show()
+
+
+                plot_kw['color'] = current_color
+
+                if per_trial:
+                    plot_trials(resp,tscale,current_axis,**plot_kw)
+
+                else:
+                    plot_sempsth(resp,tscale,current_axis,**plot_kw) 
+
+            off_axes(current_axis)
+            current_axis.set_facecolor((1, 1, 1, 0))
+
+    plt.subplots_adjust(wspace=0.01, hspace=-.5)
+
+    return fig
+
+def find_axlim(fig):
+    global_min, global_max = float('inf'), float('-inf')
+    for ax in fig.get_axes():
+        for line in ax.get_lines():  # Iterate over all line objects in the Axes
+            ydata = line.get_ydata()
+            global_min = min(global_min, np.min(ydata))
+            global_max = max(global_max, np.max(ydata))
+    return global_min,global_max
+
+def plot_several_responses(
+        neuronID = 1336,
+        divider_arg = 'response_direction',**kwargs):
+
+    allfigs = []
+    for ttt in np.sort(ev[divider_arg].unique()):
+
+
+        trial_indices = ev[divider_arg]==ttt
+
+        fig = plot_responses(
+            ev,at_aud,at_choice,trial_indices,neuronID, 
+            **kwargs)
+        
+        allfigs.append(fig)
+
+    mins,maxs =zip(*[find_axlim(f) for f in allfigs])
+    global_ylim = (np.array(mins).min(),np.array(maxs).max())  # Define your desired ylim
+
+    for fig in allfigs:
+        for ax in fig.get_axes():
+            ax.set_ylim(global_ylim)
+
+    plt.show()
+
+
+
+plot_several_responses(
+    neuronID=1110,
+    divider_arg='response_direction', 
+    at_stim = True, per_trial=False
+)
+# %%
+
+fig,ax = plt.subplots(1,1,figsize=(5,5))
+ax.matshow(at_choice.rasters[:,neuronID,:],aspect='auto',cmap='Greys',vmax = 200)
+# %%
+nrn_raster = at_choice.rasters[:,neuronID,:]
+n_trials = nrn_raster.shape[0]
+
+for i in range(10):
+
+    plt.plot(nrn_raster[i,:])
 
 
 # %%
+#for each trial calculate when was the earliest time that you reached 50% of the final firing rate
+
+def get_half_fr_time(nrn_at_trial):
+    fr_at_choice = nrn_at_trial[-1]
+    half_fr = fr_at_choice/2
+    idx = np.where(nrn_at_trial < half_fr)[0]
+
+    if len(idx) == 0:
+        return np.nan
+    else:
+        return at_choice.tscale[idx[-1]]
 
 
-plt.matshow(at_aud.rasters[:,133,:],aspect='auto')
+half_fr_times = np.array([get_half_fr_time(nrn_raster[i,:]) for i in range(n_trials)])
+
+
+
 # %%
+evidence = (ev.audDiff + ev.visDiff)
+
+plt.scatter(ev.rt,half_fr_times,c=evidence,cmap='coolwarm')
+
+  # %%
+
+
+# normalise each trial to the last timebin
+nrn_raster_norm = np.zeros_like(nrn_raster) 
+for i in range(n_trials):
+    nrn_raster[i,:] = nrn_raster[i,:] - nrn_raster[i,-1]
+
+
+
+#%%
+for i in range(10):
+
+    plt.plot(nrn_raster_norm[i,:])
+#plt.plot(np.mean(at_choice.rasters[:,neuronID,:],axis=0))
+
+
+# %%
+t = nrn_raster#_norm
+plt.plot(t[ev.is_visualTrial,:].mean(axis=0))
+plt.plot(t[ev.is_auditoryTrial,:].mean(axis=0))
+plt.plot(t[ev.is_coherentTrial,:].mean(axis=0))
+plt.plot(t[ev.is_conflictTrial,:].mean(axis=0))
+
+ # %%
+
+
+
