@@ -13,8 +13,8 @@ from pinkrigs_tools.utils.ev_utils import format_events
 from pinkrigs_tools.utils.stat.cccp import cccp, get_default_set
 
 recordings = load_data(
-    subject  = 'AV030',
-    expDate = '2022-12-07',
+    subject  = 'AV008',
+    expDate = '2022-03-09',
 
     expDef = 'multiSpaceWorld',
     data_name_dict = 'all-default', 
@@ -33,6 +33,7 @@ rec = recordings.iloc[0]
 # p_choice = p[1]
 # %%
 ev = pd.DataFrame(format_events(rec.events._av_trials))
+
 spikes = rec.probe.spikes
 
 ev = ev.query('abs(stim_audAzimuth) != 30')
@@ -177,7 +178,7 @@ def plot_several_responses(
 
 
 plot_several_responses(
-    neuronID=1110,
+    neuronID=95,
     divider_arg='response_direction', 
     at_stim = True, per_trial=False
 )

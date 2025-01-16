@@ -352,8 +352,6 @@ def add_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
                 nrnNames  = np.array(['neuron_%.0d' % n for n in nID])[~discard_idx]
                 ev[nrnNames] = pd.DataFrame(responses[:,~discard_idx])
 
-
-
 def add_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0):
         
         bin_kwargs  = {
