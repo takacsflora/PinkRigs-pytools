@@ -300,7 +300,7 @@ def preproc_and_save(brain_region=None,
             # get the trigged data 
 
             # event data (trials x trial features)
-            ev = pd.concat([format_events(ev,reverse_opto=True) for ev in ev_list])
+            ev = pd.concat([format_events(ev,reverse_opto=False) for ev in ev_list])
             # triggeed data (trials x features[neurons,movement] x timepoints)
 
 
