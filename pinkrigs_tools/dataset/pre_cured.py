@@ -7,7 +7,7 @@ import pandas as pd
 from .query import load_data
 from ..utils import ev_utils
 
-def call_(subject_set='naive',dataset_type='naive',
+def call_(subject_set='naive',dataset_type='naive', extra_identifier = '',
                     spikeToInclde=True, 
                     camToInclude = True, camPCsToInclude = False,
                     recompute_data_selection=False,
@@ -141,7 +141,7 @@ def call_(subject_set='naive',dataset_type='naive',
     # make the savepath
     elif not recompute_data_selection:
         # find the latest file related to this recording  
-        datasets = list(savepath.glob(f'{subject_set}_{dataset_type}_dataset_*.csv'))
+        datasets = list(savepath.glob(f'{extra_identifier}{subject_set}_{dataset_type}_dataset_*.csv'))
         savefile = datasets[0]
         expList = pd.read_csv(savefile)   
         query_params.pop('subject') # each identifier will be called separetly so we don't need this anymore      
@@ -161,7 +161,7 @@ def call_(subject_set='naive',dataset_type='naive',
 
     current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    filename = f"{subject_set}_{dataset_type}_dataset_{current_timestamp}.csv"
+    filename = f"{extra_identifier}{subject_set}_{dataset_type}_dataset_{current_timestamp}.csv"
     savefile = savepath / filename
     recordings[['subject','expDate','expNum','expFolder']].to_csv(savefile) # I need to timestamp it -- plus arrange into some sort of folder
 

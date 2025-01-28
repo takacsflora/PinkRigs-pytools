@@ -13,8 +13,8 @@ from pinkrigs_tools.utils.ev_utils import format_events
 from pinkrigs_tools.utils.stat.cccp import cccp, get_default_set
 
 recordings = load_data(
-    subject  = 'AV008',
-    expDate = '2022-03-09',
+    subject  = 'AV030',
+    expDate = '2022-12-08',
 
     expDef = 'multiSpaceWorld',
     data_name_dict = 'all-default', 
@@ -24,6 +24,9 @@ recordings = load_data(
 
 
 rec = recordings.iloc[0]
+
+ev = rec.events._av_trials
+spikes = rec.probe.spikes
 #%%
 # pars = get_default_set(which='single_bin',t_length=0.2,t_bin=0.005)
 # c = cccp()
@@ -38,6 +41,8 @@ spikes = rec.probe.spikes
 
 ev = ev.query('abs(stim_audAzimuth) != 30')
 ev = ev.query('response_direction != 0')
+
+#%%
 
 # make all the rasters aligned to auditory stimulus onset and choice
 # then in the filtering function we just sort for that matrix
