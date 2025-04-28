@@ -33,8 +33,8 @@ def get_trigger_params(paramset='choice'):
 
         timing_params = {
             'onset_time':'timeline_choiceMoveOn',
-            'pre_time':0.15,
-            'post_time':0, 
+            'pre_time':0.5,
+            'post_time':.2, 
             'bin_size': 0.02,
         }
 
@@ -147,7 +147,7 @@ def init_folder_structure(savepath,raster_dat = ['stim','choice']):
 
     for raster in raster_dat:
         subfolder = raster_path / raster
-        subfolder.mkdir(parents=False, exist_ok=True)
+        subfolder.mkdir(parents=True, exist_ok=True)
 
 
     raster_path = Path(raster_path)
@@ -301,9 +301,9 @@ def preproc_and_save(brain_region=None,
 
             # event data (trials x trial features)
             ev = pd.concat([format_events(ev,reverse_opto=False) for ev in ev_list])
+            
+            
             # triggeed data (trials x features[neurons,movement] x timepoints)
-
-
 
             for trigger_ts in trigger_paramsets:
                 triggered_data =get_triggered_data(
@@ -321,7 +321,7 @@ def preproc_and_save(brain_region=None,
             
             # time data (feautres[neurons,movements]  x timepoints) 
             # this is pass atm but we will do it. 
-
+            
 
 
 
@@ -343,7 +343,7 @@ def preproc_and_save(brain_region=None,
 
 if __name__ == "__main__":
     
-    regions = ['CP']
+    regions = ['VISp']
 
     for region in regions: 
-        preproc_and_save(brain_region=region, subject_set='forebrain', recompute_data_selection=True)
+        preproc_and_save(brain_region=region, subject_set='active', recompute_data_selection=True)
