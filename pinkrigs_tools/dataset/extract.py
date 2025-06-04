@@ -11,7 +11,7 @@ import pandas as pd
 from pathlib import Path
 
 from pinkrigs_tools.dataset.pre_cured import call_
-from pinkrigs_tools.utils.ev_utils import format_events,get_triggered_data
+from pinkrigs_tools.utils.ev_utils import format_events,get_triggered_data,get_time_data
 from pinkrigs_tools.utils.spk_utils import format_cluster_data
 
 from floras_helpers.io import Bunch,save_dict_to_json
@@ -320,8 +320,13 @@ def preproc_and_save(brain_region=None,
 
             
             # time data (feautres[neurons,movements]  x timepoints) 
-            # this is pass atm but we will do it. 
-            
+            # this is pass atm but we will do it.
+            # save the time data #### 
+            get_time_data(
+                ev=ev,
+                spikes=spikes_data,
+                savepath=paths['time'] / sessname,
+                cam=cam_data)
 
 
 
@@ -343,7 +348,8 @@ def preproc_and_save(brain_region=None,
 
 if __name__ == "__main__":
     
-    regions = ['VISp']
+    #regions = ['SCs','SCm','MOs']
 
+    regions = ['SCs']
     for region in regions: 
         preproc_and_save(brain_region=region, subject_set='active', recompute_data_selection=True)

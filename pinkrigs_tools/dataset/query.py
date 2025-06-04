@@ -192,7 +192,7 @@ def queryCSV(subject='all', expDate='all', expDef='all', expNum=None, checkIsSor
 
     return exp2checkList
 
-def load_ONE_object(collection_folder, object, attributes='all'):
+def load_ONE_object(collection_folder, object, attributes='all', hacknewbombcellrun = False):
     """
     function that loads any ONE object with npy extension
     ONE object = clollection_folder/object.attribute.expIDtag.extension 
@@ -218,6 +218,8 @@ def load_ONE_object(collection_folder, object, attributes='all'):
     object_names = [re.split(r"\.", file.name)[0] for file in file_names]
     attribute_names = [re.split(r"\.", file.name)[1] for file in file_names]
     extensions = [re.split(r"\.", file.name)[-1] for file in file_names]
+
+
 
     if 'all' in attributes:
         attributes = attribute_names
@@ -346,8 +348,14 @@ def load_data(recordings=None,
                 for my_object in data_name_dict[collection]:
                     objects[my_object] = load_ONE_object(ev_collection_folder, my_object,
                                                       attributes=data_name_dict[collection][my_object])
+                    
+
+
                 objects = Bunch(objects)
                 recordings.loc[idx][collection] = objects
+
+        ###### we rerun_bombcell temporarily so I might need to add this one here ####
+
 
         ### dealing with camera data selection ####
         if cam_hierarchy:

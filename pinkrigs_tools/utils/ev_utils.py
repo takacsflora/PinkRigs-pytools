@@ -5,7 +5,7 @@ from scipy.stats import zscore
 
 
 from floras_helpers.io import Bunch
-from floras_helpers.binning import get_binned_rasters
+from floras_helpers.binning import get_binned_rasters,bincount2D
 from floras_helpers.vid import get_move_raster
 
 def round_event_values(ev):
@@ -389,7 +389,6 @@ def get_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
              return df
 
 
-                
 def get_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,bin_size = 0.2,add_to_ev=True):
         
         bin_kwargs  = {
@@ -405,10 +404,18 @@ def get_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post
         t_on = ev[onset_time]
         move_raster,tscale,_  = get_move_raster(t_on[~np.isnan(t_on)],cam.times,cam_values,**bin_kwargs) 
         
-        zscored = zscore(move_raster,axis=0) 
+        
+        # maybe let's do min-max normaliser..?
+        min_move_value = np.nanmin(move_raster)
+        max_move_value = np.nanmax(move_raster)
+        
+        # min max normalise move_raster
+        move_raster_norm = (move_raster - min_move_value) / (max_move_value - min_move_value)
+        
+        #zscored = zscore(move_raster,axis=0) # yeah I guess if that when it gets fluffy.... becaus if there is a lot of movement -- the average is MOVEMENT
 
-        resps = np.empty((t_on.size,zscored.shape[1]))*np.nan
-        resps[~np.isnan(t_on),:] = zscored
+        resps = np.empty((t_on.size,move_raster_norm.shape[1]))*np.nan
+        resps[~np.isnan(t_on),:] = move_raster_norm
 
         n_trials = t_on.size
         n_timepoints = tscale.size
@@ -485,24 +492,95 @@ def get_triggered_data(ev,spikes=None,cam=None,nID=None,single_average_accross_n
                 
 
 
-def get_time_data():
+
+#### functions to get the long-form data (i.e. nrns x time)
+
+def get_binary_timestamps(tscale,onset_times):
+
+    binary_trace = np.zeros_like(tscale, dtype=int)
+
+    for onset in onset_times:
+        if ~np.isnan(onset):
+            bin_idx = np.argmin(np.abs(tscale - onset))
+            binary_trace[bin_idx] = 1
+
+    return binary_trace
+
+def get_binary_onset_periods(tscale,onset_times,offset_times,scale_with_idx = False):
+    
+    if scale_with_idx:
+        binary_trace = np.ones_like(tscale, dtype=int)*-1
+
+    else:
+        binary_trace = np.zeros_like(tscale, dtype=int)
+
+    for idx,(onset, offset) in enumerate(zip(onset_times, offset_times)):
+        bin_onset = np.argmin(np.abs(tscale - onset))
+        bin_offset = np.argmin(np.abs(tscale - offset))
+        if scale_with_idx:
+            binary_trace[bin_onset:bin_offset] = idx
+        else:
+            binary_trace[bin_onset:bin_offset] = 1
+
+    return binary_trace
+
+
+def get_time_data(ev,spikes,savepath,cam,tbin = 0.005,smoothing = 0.025):
         """
-        function to extract a feature x time matrix. Features will include neurons, movemment and digitised event data
+        function to extract a feature x time matrix.
+
+
         """
-        pass
+        
+        # bin the spike data
+        R,tscale,clusIDs = bincount2D(spikes.times,spikes.clusters,xbin=tbin,xsmoothing=smoothing)
 
 
-# some other filtering fuction that I have been having.. 
 
-    # optin to do some filtering here....
-    # trials['trialtype_id'] = trials.copy().groupby(['visDiff','audDiff']).ngroup()
-    # #
 
-    # # make sure that each class of trials will have min 2 types for splitting
-    # uniqueIDs,test_counts = np.unique(trials.trialtype_id,return_counts=True)
+# will also basically need to classify each of the trials as tscale timepoints as beloinging to a trial
+        #  so that these can be cross-referenced with ev
 
-    # if (test_counts<2).any():
-    #     print('In %s I am dropping some trial types...' % rec.expFolder)
-    #     rare_trialtypes = uniqueIDs[test_counts<2]
-    #     for rareID in rare_trialtypes:
-    #         trials = trials[trials.trialtype_id!=rareID]
+        # well both take like 20  s
+        event_names  = list(ev.keys())
+        on_event_names = [name for name in event_names if ('On' in name) & ('aser' not in name)]
+        off_event_names = [name for name in event_names if ('Off' in name) & ('aser' not in name)]
+
+
+        # okay so we have the on and off stuff. The things that are off are the ones that have a corresponding off, so we can get the periods as well
+        on_off_pairs = [(on_name, off_name) for on_name in on_event_names 
+                        for off_name in off_event_names if on_name == off_name.replace('Off', 'On')]
+
+
+
+        single_times = on_event_names + off_event_names
+
+        binary_onsets = np.concatenate([get_binary_timestamps(tscale, ev[on_name].values)[np.newaxis,:] for on_name in single_times])
+
+        binary_periods = np.concatenate([get_binary_onset_periods(tscale, ev[on_name].values, ev[off_name].values)[np.newaxis,:] 
+                        for on_name, off_name in on_off_pairs])
+        period_names = [on_name.replace('On', '') for on_name, _ in on_off_pairs]
+
+
+        trialIDs = get_binary_onset_periods(tscale, ev['block_trialOn'].values, ev['block_trialOff'].values, scale_with_idx=True)[np.newaxis,:]
+
+        
+        
+        cam_values = np.interp(tscale,cam.times,cam.ROIMotionEnergy)[np.newaxis,:]
+
+
+        event_matrix = np.concatenate([binary_onsets,binary_periods,trialIDs,cam_values],axis=0)
+        eventIDs = np.array(single_times+period_names+['trialID','camera'])
+
+
+        # saving stuf in .npz format! 
+
+        savepath = savepath.parent / (savepath.stem + '.npz')
+        np.savez_compressed(savepath, 
+                        neural_activity=R,
+                        tscale=tscale,
+                        clusIDs=clusIDs,                    
+                        event_matrix=event_matrix, 
+                        eventIDs=eventIDs)
+        
+        # essentailly we return nothing...to be commented... 
