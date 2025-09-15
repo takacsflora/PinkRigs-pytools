@@ -230,7 +230,6 @@ def preproc_and_save(brain_region=None,
             'framework': 'Beryl',
             'min_fraction': 20,
             'goodOnly': True,
-            'min_spike_num': 300
         },
         'min_rt': 0,
         'analysis_folder': savepath / 'datasets',	
@@ -271,13 +270,14 @@ def preproc_and_save(brain_region=None,
             print('no passive session found for %s' % sessname)
         
         else:
+            print('processing %s' % sessname)
             passive_rec = passive_rec_query.iloc[0]
 
 
             # to compare passive activity from approx. stimulus response vs. pre-choice neural activity, I will also simulate the timing of choice onset on passive trials 
             # for this I sample the time of choice onset from the active session and add it to the passive session
 
-            ev_passive = add_choice_onset_to_passive_trials(rec.events._av_trials,passive_rec.events._av_trials)
+            ev_passive = passive_rec.events._av_trials
 
             # build a list of all the data we are extracting  (btw this is potentailly how ut would work if we concatenate several days)
             clusters_list = [rec.probe.clusters,passive_rec.probe.clusters]
@@ -322,11 +322,11 @@ def preproc_and_save(brain_region=None,
             # time data (feautres[neurons,movements]  x timepoints) 
             # this is pass atm but we will do it.
             # save the time data #### 
-            get_time_data(
-                ev=ev,
-                spikes=spikes_data,
-                savepath=paths['time'] / sessname,
-                cam=cam_data)
+            # get_time_data(
+            #     ev=ev,
+            #     spikes=spikes_data,
+            #     savepath=paths['time'] / sessname,
+            #     cam=cam_data)
 
 
 
@@ -337,6 +337,7 @@ def preproc_and_save(brain_region=None,
             cluster_data.to_csv((paths['clusters'] / sessname),index=False)
             ev.to_csv((paths['trials'] / sessname),index=False)         
             meta_data.append(generate_meta_data([rec,passive_rec]))
+            print(len(meta_data))
 
 
 
@@ -350,6 +351,6 @@ if __name__ == "__main__":
     
     #regions = ['SCs','SCm','MOs']
 
-    regions = ['SCs']
+    regions = ['MOs']
     for region in regions: 
-        preproc_and_save(brain_region=region, subject_set='active', recompute_data_selection=True)
+        preproc_and_save(brain_region=region, subject_set='SCMOs', recompute_data_selection=False)

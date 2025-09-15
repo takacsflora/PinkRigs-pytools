@@ -219,6 +219,29 @@ def load_ONE_object(collection_folder, object, attributes='all', hacknewbombcell
     attribute_names = [re.split(r"\.", file.name)[1] for file in file_names]
     extensions = [re.split(r"\.", file.name)[-1] for file in file_names]
 
+    ## atm I am testing whether to rerun bommcell on the whole dataset or not -- the temp bombcell files are saved in a local folder on my computer, not in the collection folder
+    # for now, I will replace the the bombcell paths to the temp paths if it exisits...
+    if (hacknewbombcellrun) & (object =='clusters'):
+        orig_bc_path = [f for f in file_names if 'bc_qualityMetrics' in  f.stem]
+        if len(orig_bc_path) != 0:
+            orig_bc_filename = orig_bc_path[0].stem
+            # Extract expDate, expNum, subject, probeID, serialNumber from orig_bc_filename
+            match = re.match(
+                r"clusters\._bc_qualityMetrics\.(?P<expDate>[^_]+)_(?P<expNum>[^_]+)_(?P<subject>[^_]+)_(?P<probeID>[^-]+)-(?P<serialNumber>.+)",
+                orig_bc_filename
+            )
+            expDate = match.group("expDate")
+            expNum = match.group("expNum")
+            subject = match.group("subject")
+            probeID = match.group("probeID")
+            serialNumber = match.group("serialNumber")
+
+            ## new ONEs ###
+            new_bc_path = rf'D:\bombcell_testrun\ONEs\{subject}\{expDate}\{expNum}\{probeID}\clusters._bc_qualityMetrics.newBC_test.pqt'
+    
+            if Path(new_bc_path).is_file():
+                # replace the original file with the new one
+                file_names = [Path(new_bc_path) if f == orig_bc_path[0] else f for f in file_names]
 
 
     if 'all' in attributes:
@@ -347,7 +370,7 @@ def load_data(recordings=None,
                 objects = {}
                 for my_object in data_name_dict[collection]:
                     objects[my_object] = load_ONE_object(ev_collection_folder, my_object,
-                                                      attributes=data_name_dict[collection][my_object])
+                                                      attributes=data_name_dict[collection][my_object],hacknewbombcellrun=True)
                     
 
 

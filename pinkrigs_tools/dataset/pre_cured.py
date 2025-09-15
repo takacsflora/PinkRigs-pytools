@@ -63,6 +63,9 @@ def call_(subject_set='naive',dataset_type='naive', extra_identifier = '',
         subject_list = ['FT030','FT031','FT032','FT035','AV005','AV008','AV014','AV020','AV025','AV030','AV034']
     elif 'forebrain' in subject_set:
         subject_list = ['AV007','AV009','AV013','AV015','AV021','AV023']
+    elif 'SCMOs' in subject_set:
+        subject_list = ['FT030','FT032','AV005','AV008','AV014','AV025','AV030','AV034',
+                        'AV007','AV013','AV023']
     elif 'totAV' in subject_set: 
         subject_list = ['FT030','FT031','FT032','FT035','AV005','AV008','AV014','AV020','AV025','AV030','AV034','AV007','AV009','AV013','AV015','AV021','AV023']
     else:
@@ -134,8 +137,7 @@ def call_(subject_set='naive',dataset_type='naive', extra_identifier = '',
                                                 rt_params=rt_params,
                                                 exclude_premature_wheel=exclude_premature_wheel).sum()
                                                 
-                                                for _,rec in recordings.iterrows()])
-
+                                                for _,rec in recordings.iterrows()]) # I think this is potentailly creating problems because it overwrites the ev structure permanently?
         recordings = recordings.iloc[n_trials>min_active_trials]  
 
     # make the savepath
@@ -152,6 +154,8 @@ def call_(subject_set='naive',dataset_type='naive', extra_identifier = '',
                                 **query_params) for _,rec in expList.iterrows()]    
         
         recordings = pd.concat(recordings)
+
+    
 
     if spikeToInclde:
         # basically double check spiking because the extractSpikes==1 is not enough. Some alignments are weird
