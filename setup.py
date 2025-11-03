@@ -14,7 +14,9 @@ setup(
         'pyarrow==8.0.0', # for parquetread support in pd
         'pandas==1.3.5',
         'numpy==1.26',
-        'seaborn'
+        'xarray==0.19.0',
+        'seaborn',
+        'brainrender'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',

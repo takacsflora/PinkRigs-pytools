@@ -26,15 +26,17 @@ def calculate_differences(ev):
 
         return ev
 
+def calculate_first_stim_times(ev):
+        ev.first_stim_time = np.nanmin(
+        np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
+        axis=1)
+        return ev
+
 def calculate_reaction_times(ev):
     if hasattr(ev, 'timeline_firstMoveOn'):
-        ev.rt = ev.timeline_choiceMoveOn - np.nanmin(
-            np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
-            axis=1)
+        ev.rt = ev.timeline_choiceMoveOn - ev.first_stim_time
         ev.rt_aud = ev.timeline_choiceMoveOn - ev.timeline_audPeriodOn
-        ev.first_move_time = ev.timeline_firstMoveOn - np.nanmin(
-            np.concatenate([ev.timeline_audPeriodOn[:, np.newaxis], ev.timeline_visPeriodOn[:, np.newaxis]], axis=1),
-            axis=1)
+        ev.first_move_time = ev.timeline_firstMoveOn - ev.first_stim_time
     return ev
 
 def process_laser_trials(ev, reverse_opto):
@@ -82,11 +84,13 @@ def format_events(ev, reverse_opto=False,normalise_event_values=True):
         """
 
         ev = round_event_values(ev)
+        ev = calculate_first_stim_times(ev)
         ev = calculate_reaction_times(ev)
         ev = process_laser_trials(ev, reverse_opto)
         
         if normalise_event_values:
                 ev = normalize_event_values(ev)
+        
 
         return pd.DataFrame.from_dict(ev)
 
@@ -308,7 +312,7 @@ def parse_av_events(ev,contrasts,spls,vis_azimuths,aud_azimuths,
 
         return ev,class_types
 
-def get_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,bin_size=0.02,get_zscored=True, single_average_accross_neurons=False,add_to_ev=True):
+def get_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,bin_size=0.02,smoothing=0,get_zscored=False):
         """
         todo: try to fix this discardIdx,because it doesn't seem sensible to do it here.
 
@@ -321,13 +325,10 @@ def get_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
                 'pre_time':pre_time,
                 'post_time': post_time, 
                 'bin_size':bin_size,#pre_time+post_time,
-                'smoothing':0,
+                'smoothing':smoothing,
                 'return_fr':True,
                 'baseline_subtract': False, 
                 }
-
-
-
 
         t_on = ev[onset_time]
 
@@ -345,13 +346,6 @@ def get_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
         # this only works if all t_ons are nans which is ofc not true always
         r = get_binned_rasters(spikes_times,spikes_clusters,nID,t_on[~np.isnan(t_on)],**raster_kwargs)
 
-        # if single average then we just reformulate the rasters anrray to have one datapoint in the time axis 
-        if single_average_accross_neurons: 
-                r.rasters = r.rasters.mean(axis=1)[:,np.newaxis,:]
-   
-        # make the response matrix in the shape of the requested t_on  times, even if some of them were not valid
-        
-        # discard neurons that are nan on all trials that were kept 
         # potentailly move this discarding outside of this function... 
         response_at_valid_onsets = r.rasters[:,:,:]
         
@@ -368,28 +362,19 @@ def get_triggered_spikes(ev,spikes,nID,onset_time='timeline_audPeriodOn',pre_tim
                 responses[~np.isnan(t_on),:,:] = response_at_valid_onsets
                 discard_idx =  np.isnan(response_at_valid_onsets[:,:,0]).any(axis=0) 
 
-        if add_to_ev:
-                if single_average_accross_neurons:
-                        #df['neuron'] = pd.DataFrame((resps[:,~discard_idx].mean(axis=1))) 
-                        ev['neuron']  = pd.DataFrame(responses[:,~discard_idx])
-                else:
-                        nrnNames  = np.array(['neuron_%.0d' % n for n in nID])[~discard_idx]
-                        ev[nrnNames] = pd.DataFrame(responses[:,~discard_idx])
-
-        else: 
-             data_binned = responses[:,~discard_idx]
-             cscale  = np.array(['neuron_%.0d' % n for n in nID])[~discard_idx]  
-             tscale = r.tscale
-             df = pd.DataFrame({
-                        "Trial": np.repeat(np.arange(n_trials), n_neurons * n_timepoints),
-                        "Feature": np.tile(np.repeat(cscale, n_timepoints), n_trials),
-                        "Time": np.tile(tscale, n_trials * n_neurons),  # Assign time from tscale
-                        "Response": data_binned.flatten()
-                        })
-             return df
 
 
-def get_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,bin_size = 0.2,add_to_ev=True):
+        data_binned = responses[:,~discard_idx]
+        tscale = r.tscale
+        
+        return Bunch({'data_binned':data_binned,
+                'cscale':nID[~discard_idx],
+                'tscale':tscale})
+
+
+
+
+def get_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post_time=0,bin_size = 0.2):
         
         bin_kwargs  = {
                 'pre_time':pre_time,
@@ -411,81 +396,24 @@ def get_triggered_cam(ev,cam,onset_time='timeline_audPeriodOn',pre_time=0.2,post
         
         # min max normalise move_raster
         move_raster_norm = (move_raster - min_move_value) / (max_move_value - min_move_value)
-        
-        #zscored = zscore(move_raster,axis=0) # yeah I guess if that when it gets fluffy.... becaus if there is a lot of movement -- the average is MOVEMENT
+
 
         resps = np.empty((t_on.size,move_raster_norm.shape[1]))*np.nan
         resps[~np.isnan(t_on),:] = move_raster_norm
 
-        n_trials = t_on.size
-        n_timepoints = tscale.size
+        return Bunch({'data_binned':resps,
+                'cscale':np.array(['cam']),
+                'tscale':tscale})
         
 
-        # also do it for each PC
-        if hasattr(cam, '_av_motionPCs') & add_to_ev:
-                nPCs = 100 
-                PCs_raster,_,_ = zip(*[get_move_raster(t_on[~np.isnan(t_on)],cam.times,cam._av_motionPCs[:,0,i],**bin_kwargs) for i in range(nPCs)])
-                PCs_raster = np.concatenate(PCs_raster,axis=1)
-                PCs_raster_ = np.empty((t_on.size,nPCs))*np.nan
-                PCs_raster_[~np.isnan(t_on),:] = PCs_raster
-                
-                for i in range(nPCs):
-                        ev['movement_PC%.0d' % i] = PCs_raster_[:,i]
-        if add_to_ev:
-                ev['movement'] = pd.DataFrame(resps)
 
-        else:
-                df = pd.DataFrame({
-                        "Trial": np.repeat(np.arange(n_trials), 1 * n_timepoints),
-                        "Feature": np.tile(np.repeat(['movement'], n_timepoints), n_trials),
-                        "Time": np.tile(tscale, n_trials * 1),  # Assign time from tscale
-                        "Response": resps.flatten()
-                        })
-
-                return df
-        
-# def get_triggered_data_per_trial(ev,spikes=None,cam=None,nID=None,single_average_accross_neurons = False,get_zscored = False,**timing_kwargs):
-#     """
-#     specific function for the av pipeline such that the _av_trials.table is formatted for the glmFit class
-     
-#     to potentially retire this function! 
-
-
-#     Parameters: 
-#     ----------
-#     ev: Bunch
-#         _av_trials.table
-#     spikes: Bunch 
-#         default output of the pipeline
-#         cam: Bunch
-#     Returns: pd.DataFrame
-#     """
-#     ev = format_events(ev,reverse_opto=False)  
-#     # add average nerual activity to the ev
-#     if spikes: 
-#         add_triggered_spikes(ev,spikes,nID,single_average_accross_neurons = single_average_accross_neurons,get_zscored = get_zscored,**timing_kwargs)
-#     if cam:
-#         add_triggered_cam(ev,cam,**timing_kwargs)
-
-
-
-
-# #     if post_time is not None:
-# #         rt_params = {'rt_min':post_time+0.03,'rt_max':1.5}
-# #     else:
-# #         rt_params = {'rt_min':0.03,'rt_max':1.5}
-
-# #     to_keep_trials = filter_active_trials(ev,rt_params=rt_params,**kwargs) # not that used in th
-# #    df = df[to_keep_trials].reset_index(drop=True)
-
-#     return ev
-
-
+################ functions not in use  ##############
 def get_triggered_data(ev,spikes=None,cam=None,nID=None,single_average_accross_neurons = False,get_zscored = False,**timing_kwargs): 
         """
         this function will allow to get triggered data for each trial 
         """
         neurons_triggered  = get_triggered_spikes(ev,spikes,nID,single_average_accross_neurons = single_average_accross_neurons,get_zscored = get_zscored,add_to_ev=False,**timing_kwargs)
+        timing_kwargs.pop('smoothing', None)  # Remove 'smoothing' from timing_kwargs if it exists
         movement_triggered = get_triggered_cam(ev,cam,add_to_ev=False,**timing_kwargs)
 
         return pd.concat([neurons_triggered,movement_triggered],axis=0)

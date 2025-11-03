@@ -22,5 +22,10 @@ After pulling the repository run `pip install .`
 - follow the tutorial found [here](https://github.com/takacsflora/PinkRigs-pytools/blob/main/tests/load_datasets_tutorial.ipynb). 
 
 # Common issues
-This code is currently for CortexLab members and collaborators only and requires server access. Please make sure that you mapped all of our active servers. This code is only compatible with pandas 1.3> at the moment. Please get it touch if you have ideas on how to refactor for newer version of pandas.
+This code is currently for CortexLab members and collaborators only and requires server access. Please make sure that you mapped all of our active servers. This code is only compatible with pandas 1.3> at the moment.
 
+# Visualisation tools
+
+## Visual receptive fields from sparse noise
+I use white squares of 7.5°-size displayed on a black background. The location of each white square is selected randomly from a spatially uniform distribution updating 
+the selection at 20Hz. Each white square appears for 1/6 s. To get receptive fields in an early visual area like the SC, I fit 2D gaussians to responses in a 20-80ms window after the onset of the white squares. 

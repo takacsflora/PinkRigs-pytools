@@ -1,7 +1,7 @@
 # this code queries and extracts av data, 
 # more specifically will output a folder of csvs where rows are trials and columns are 
 # ev information as well as extracted neural activity
-# maybe this collection should also contain the design matrix formatter..? up to decision for later
+
 
 #    
 
@@ -11,14 +11,11 @@ import pandas as pd
 from pathlib import Path
 
 from pinkrigs_tools.dataset.pre_cured import call_
-from pinkrigs_tools.utils.ev_utils import format_events,get_triggered_data,get_time_data
+from pinkrigs_tools.utils.ev_utils import format_events,get_triggered_spikes,get_triggered_cam
 from pinkrigs_tools.utils.spk_utils import format_cluster_data
 
 from floras_helpers.io import Bunch,save_dict_to_json
 
-# for fitting the rt distributions 
-from scipy.special import erf
-import scipy.optimize as opt
 
 def get_trigger_params(paramset='choice'):
     """_summary_
@@ -33,33 +30,25 @@ def get_trigger_params(paramset='choice'):
 
         timing_params = {
             'onset_time':'timeline_choiceMoveOn',
-            'pre_time':0.5,
+            'pre_time':2,
             'post_time':.2, 
-            'bin_size': 0.02,
-        }
-
-    elif paramset == 'prestim':
-        timing_params = {
-            'onset_time':'timeline_audPeriodOn',
-            'pre_time':0.15,
-            'post_time':0, 
-            'bin_size': 0.02,
-        }
-    
-    elif paramset == 'poststim':
-        timing_params = {
-            'onset_time':'timeline_audPeriodOn',
-            'pre_time':0,
-            'post_time':0.15,
-            'bin_size': 0.02,
+            'bin_size': 0.01,
         }
 
     elif paramset == 'stim':
         timing_params = {
             'onset_time':'timeline_audPeriodOn',
-            'pre_time':0.2,
-            'post_time':0.5,
-            'bin_size': 0.02,
+            'pre_time':1,
+            'post_time':1.7,
+            'bin_size': 0.01,
+        }
+
+    elif paramset == 'prestim':
+        timing_params = {
+            'onset_time':'first_stim_time',
+            'pre_time':1,
+            'post_time':1.7,
+            'bin_size': 0.01,
         }
     
     return timing_params
@@ -123,7 +112,7 @@ def combine_cam(cam_list):
         cam_combined[key] = np.concatenate([cam[key] for cam in cam_list])
 
     return pd.DataFrame.from_dict(cam_combined)
-
+##
 def init_folder_structure(savepath,raster_dat = ['stim','choice']):
 
     trial_path = savepath / 'trial_data'
@@ -171,49 +160,55 @@ def init_folder_structure(savepath,raster_dat = ['stim','choice']):
 
     return paths
 
-def exgaussian_pdf(x, mu, sigma, tau):
-    return (1 / tau) * np.exp((mu - x) / tau + (sigma ** 2) / (2 * tau ** 2)) * \
-           0.5 * (1 + erf((x - mu - (sigma ** 2) / tau) / (np.sqrt(2) * sigma)))
+def init_folder_structureV2(savepath): 
+    data_path = savepath / 'data'
+    meta_path = savepath / 'meta_info'
 
-# Negative log-likelihood for better peak fitting
-def neg_log_likelihood_exgaussian(params,reaction_times):
-    mu, sigma, tau = params
-    if sigma <= 0 or tau <= 0:  # Prevent invalid values
-        return np.inf
-    return -np.sum(np.log(exgaussian_pdf(reaction_times, mu, sigma, tau) + 1e-8))  # Avoid log(0)
+    data_path.mkdir(parents=True,exist_ok=True)
+    meta_path.mkdir(parents=True,exist_ok=True)
 
-def fit_exgaussian(reaction_times):
-    initial_guess = [np.mean(reaction_times), np.std(reaction_times), np.mean(reaction_times) - np.median(reaction_times)]
-    result = opt.minimize(neg_log_likelihood_exgaussian, initial_guess, args=(reaction_times,), method='Nelder-Mead')
-    return result.x 
+    paths = {
+        'data': data_path,
+        'meta': meta_path
+    }
 
-def sample_exgaussian(mu, sigma, tau, size=10000):
-    gaussian_part = np.random.normal(mu, sigma, size)
-    exponential_part = np.random.exponential(tau, size)
-    return gaussian_part + exponential_part  # Sum of Gaussian + Exponentia
 
-def add_choice_onset_to_passive_trials(ev_active,ev_passive):
-    
-    # get the choice onset times from the active session relative to auditory stimulus onset
-    reaction_times = ev_active.rt_aud[~np.isnan(ev_active.rt_aud)]
-    mu, sigma, tau = fit_exgaussian(reaction_times)
+    return paths
 
-    # yeah I think I will quicky just fit the RT distribution for each stimulus condition and then sample from that distribution.
-    n_passive_trials = ev_passive.is_auditoryTrial.size
+def combine_sessions(session_list):
 
-    resampled_rts = sample_exgaussian(mu, sigma, tau, size=n_passive_trials) 
+    clusters_list = [s.probe.clusters for s in session_list]
+    spikes_list = [s.probe.spikes for s in session_list]
+    ev_list  = [s.events._av_trials for s in session_list]
+    cam_list = [s.camera for s in session_list]
 
-    # for now I will just add this. In the future it might be useful to fit the RT-dist for each stimulus condition/choice 
-    # and then resample both the rt and the choice for the passive trials.
+    spikes_list,ev_list,cam_list = cumulate_timings(spikes_list,ev_list,cam_list)
 
-    ev_passive['timeline_choiceMoveOn'] = ev_passive.timeline_audPeriodOn + resampled_rts
-    return ev_passive
+    # cluster data (clusters x cluster features)
+    cluster_data = extract_cluster_data(clusters_list)    
+    # spikes data (spikes x spike features)
+    spikes_data = combine_spikes(spikes_list) # maybe I won't save this one, in the end..
+
+    # cam data
+    cam_data = combine_cam(cam_list)
+
+    # event data (trials x trial features)
+    ev = pd.concat([format_events(ev,reverse_opto=False) for ev in ev_list])
+
+    return spikes_data,cluster_data,ev,cam_data
 
 def preproc_and_save(brain_region=None,
                     subject_set = 'active',
                     recompute_data_selection = False):
+    
+    """
+    for AV data to basically extract trial aligned neural and movement data
+    """
 
-    savepath = Path(r'D:\AV_Neural_Data') #\%s_%s' % (brain_region,paramset_name))
+    savepath = Path(r'D:\AV_Neural_Data_Sept2025')
+
+
+    paths = init_folder_structureV2(savepath)
 
     data_call_arguments = {
         'subject_set': subject_set,
@@ -228,41 +223,36 @@ def preproc_and_save(brain_region=None,
         'region_selection': {
             'region_name': brain_region,
             'framework': 'Beryl',
-            'min_fraction': 20,
+            'min_fraction': 12,
             'goodOnly': True,
         },
         'min_rt': 0,
-        'analysis_folder': savepath / 'datasets',	
+        'analysis_folder': paths['meta'] / 'datasets',	
     }
 
 
 
     active_sessions  = call_(dataset_type = 'active', **data_call_arguments)
-    passive_sessions  = call_(dataset_type = 'postactive', **data_call_arguments)
-
-
-    trigger_paramsets = ['stim','choice']
-
-    paths = init_folder_structure(savepath,raster_dat = trigger_paramsets)
-    
-    # check parameters of extraction 
-    # save parameters of extraction
+    passive_sessions  = call_(dataset_type = 'postactive', **data_call_arguments) # this is the main bottleneck in memory.... 
+    trigger_paramsets = ['stim','choice','prestim']
 
     trigger_timing_params = {t:get_trigger_params(paramset=t) for t in trigger_paramsets} 
     
     for trigger_ts in trigger_paramsets:
-        save_dict_to_json(trigger_timing_params,paths[f'raster_{trigger_ts}']  / f'{brain_region}trigger_timing_params.json')
+        save_dict_to_json(trigger_timing_params,paths['meta']  / f'{trigger_ts}_{brain_region}_trigger_timing_params.json')
 
     pd.DataFrame.from_dict(data_call_arguments,orient='index').to_csv(paths['meta'] / f'{brain_region}_data_call_arguments.csv',header=False)
-
 
     # collect metadata about extraction
     meta_data = []
 
+    # extract the triggered data
     for _,rec in active_sessions.iterrows():
-        sessname = '{subject}_{expDate}.csv'.format(**rec) # will be the matching data file
+        sessname = '{subject}_{expDate}'.format(**rec) # will be the matching data file
         
-        
+        session_path = paths['data'] / sessname
+        session_path.mkdir(parents=True,exist_ok=True)
+
         # find the corresponding passive session
         passive_rec_query = passive_sessions.query('(subject == @rec.subject) & (expDate == @rec.expDate)')
         
@@ -273,69 +263,37 @@ def preproc_and_save(brain_region=None,
             print('processing %s' % sessname)
             passive_rec = passive_rec_query.iloc[0]
 
-
-            # to compare passive activity from approx. stimulus response vs. pre-choice neural activity, I will also simulate the timing of choice onset on passive trials 
-            # for this I sample the time of choice onset from the active session and add it to the passive session
-
-            ev_passive = passive_rec.events._av_trials
-
-            # build a list of all the data we are extracting  (btw this is potentailly how ut would work if we concatenate several days)
-            clusters_list = [rec.probe.clusters,passive_rec.probe.clusters]
-            spikes_list = [rec.probe.spikes,passive_rec.probe.spikes]
-            ev_list  = [rec.events._av_trials,ev_passive]
-            cam_list = [rec.camera,passive_rec.camera]
-
-            spikes_list,ev_list,cam_list = cumulate_timings(spikes_list,ev_list,cam_list)
-
-            # cluster data (clusters x cluster features)
-            cluster_data = extract_cluster_data(clusters_list)
+            spikes_data,cluster_data,ev,cam_data = combine_sessions([rec,passive_rec])
             clusIDs = cluster_data._av_IDs.values
-            
-            # spikes data (spikes x spike features)
-            spikes_data = combine_spikes(spikes_list) # maybe I won't save this one, in the end..
 
-            # cam data
-            cam_data = combine_cam(cam_list)
-
-            # get the trigged data 
-
-            # event data (trials x trial features)
-            ev = pd.concat([format_events(ev,reverse_opto=False) for ev in ev_list])
-            
-            
-            # triggeed data (trials x features[neurons,movement] x timepoints)
+            # triggered data (trials x features[neurons,movement] x timepoints)
 
             for trigger_ts in trigger_paramsets:
-                triggered_data =get_triggered_data(
-                                        ev=ev,
-                                        spikes= spikes_data,
-                                        nID = clusIDs,cam=cam_data,
-                                        single_average_accross_neurons=False,
-                                        get_zscored=False,
-                                        **trigger_timing_params[trigger_ts]
-                                        )
-                                    
-                # probably save as parquet ?
-                triggered_data.to_parquet((paths[f'raster_{trigger_ts}'] / sessname),index=False)
-
             
-            # time data (feautres[neurons,movements]  x timepoints) 
-            # this is pass atm but we will do it.
-            # save the time data #### 
-            # get_time_data(
-            #     ev=ev,
-            #     spikes=spikes_data,
-            #     savepath=paths['time'] / sessname,
-            #     cam=cam_data)
+                stim_params = trigger_timing_params[trigger_ts]
+                R_stim = get_triggered_spikes(
+                                    ev=ev,
+                                    spikes= spikes_data,
+                                    nID = clusIDs,
+                                    smoothing = 0, # at this stage I don't want smoothing, can smooth later
+                                    **stim_params)
+                
+                R_cam = get_triggered_cam(
+                                    ev=ev,
+                                    cam= cam_data,
+                                    **stim_params)
+
+                np.savez(session_path / f'raster_{trigger_ts}_aligned.npz', **R_stim)
+                np.savez(session_path / f'cam_{trigger_ts}_aligned.npz', **R_cam) 
+
+                # Delete R_stim and R_cam from memory as they can be too large to extract two...
+                del R_stim
+                del R_cam
 
 
 
-            # Save the data
-            #spikes_data.to_csv((paths['spikes'] / sessname),index=False) --maybe no need
-
-
-            cluster_data.to_csv((paths['clusters'] / sessname),index=False)
-            ev.to_csv((paths['trials'] / sessname),index=False)         
+            cluster_data.to_csv((session_path / 'clusters.csv'),index=False)
+            ev.to_csv((session_path / 'trials.csv'),index=False)         
             meta_data.append(generate_meta_data([rec,passive_rec]))
             print(len(meta_data))
 
@@ -351,6 +309,17 @@ if __name__ == "__main__":
     
     #regions = ['SCs','SCm','MOs']
 
-    regions = ['MOs']
-    for region in regions: 
-        preproc_and_save(brain_region=region, subject_set='SCMOs', recompute_data_selection=False)
+    # regions = ['SCm','SCs']
+    # subjects = ['AV005','AV008','AV014','AV025','AV030','AV034','FT030','FT031','FT032']
+
+    # regions = ['MOs']
+    # subjects = ['AV007','AV013','AV023']
+
+    regions = ['SCm']
+    subjects = ['FT030']
+    for subject in subjects:
+        for region in regions: 
+            try: 
+                preproc_and_save(brain_region=region, subject_set=subject, recompute_data_selection=True)
+            except Exception as e:
+                print(f"Probably no recordings for {subject} in {region}: {e}")
